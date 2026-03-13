@@ -172,7 +172,8 @@ export function useListPaneData({
             tagAppearances: settings.tagAppearances,
             propertyAppearances: settings.propertyAppearances,
             folderSortOrder: settings.folderSortOrder,
-            folderTreeSortOverrides: settings.folderTreeSortOverrides
+            folderTreeSortOverrides: settings.folderTreeSortOverrides,
+            pinnedTagOrderByTag: settings.pinnedTagOrderByTag
         }),
         [
             settings.filterPinnedByFolder,
@@ -181,6 +182,7 @@ export function useListPaneData({
             settings.folderTreeSortOverrides,
             settings.noteGrouping,
             settings.pinnedNotes,
+            settings.pinnedTagOrderByTag,
             settings.showFileTags,
             settings.showPinnedGroupHeader,
             settings.showTags,

@@ -3491,6 +3491,27 @@ body {
     position: relative; /* For absolute positioning of reveal overlay */
 }
 
+.nn-pinned-sortable-row {
+    position: relative;
+}
+
+.nn-pinned-row-drag-proxy {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    bottom: 8px;
+    width: 16px;
+    border-radius: 10px;
+    cursor: grab;
+    opacity: 0.35;
+    background:
+        radial-gradient(circle, currentColor 1.2px, transparent 1.2px) center 4px / 6px 6px repeat-y;
+}
+
+.nn-pinned-row-drag-proxy:active {
+    cursor: grabbing;
+}
+
 .nn-file.nn-has-custom-background .nn-file-content {
     background-color: var(--nn-file-custom-bg-color);
     border-top-left-radius: var(--nn-file-top-left-radius, min(16px, var(--nn-theme-file-border-radius)));

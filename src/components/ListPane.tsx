@@ -518,6 +518,7 @@ export const ListPane = React.memo(
                         settings={settings}
                         pinnedSectionIcon={pinnedSectionIcon}
                         selectionType={selectionType}
+                        selectedTag={selectedTag}
                         sortOption={effectiveSortOption}
                         searchHighlightQuery={searchHighlightQuery}
                         isFolderNavigation={selectionState.isFolderNavigation}

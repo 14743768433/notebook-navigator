@@ -146,6 +146,44 @@ describe('FileMetadataService frontmatter integration', () => {
         expect(settingsProvider.settings.pinnedNotes?.['Vault/One.md']).toEqual({ folder: false, tag: false, property: true });
     });
 
+    it('toggles pins only within the selected tag view', async () => {
+        settingsProvider.settings.pinnedTagOrderByTag = {};
+
+        await service.togglePinnedInTagView('Vault/One.md', 'Projects/Alpha');
+
+        expect(service.isPinnedInTagView('Vault/One.md', 'projects/alpha')).toBe(true);
+        expect(service.isPinnedInTagView('Vault/One.md', 'projects/beta')).toBe(false);
+        expect(settingsProvider.settings.pinnedTagOrderByTag).toEqual({
+            'projects/alpha': ['Vault/One.md']
+        });
+
+        await service.togglePinnedInTagView('Vault/One.md', 'Projects/Alpha');
+
+        expect(service.isPinnedInTagView('Vault/One.md', 'projects/alpha')).toBe(false);
+    });
+
+    it('reorders pinned files within a tag view and persists order', async () => {
+        settingsProvider.settings.pinnedTagOrderByTag = {
+            projects: ['Vault/One.md', 'Vault/Two.md']
+        };
+
+        await service.reorderPinnedInTagView('Projects', ['Vault/Two.md', 'Vault/One.md']);
+
+        expect(service.getPinnedTagOrder('projects')).toEqual(['Vault/Two.md', 'Vault/One.md']);
+    });
+
+    it('updates pinned tag order when files are renamed or deleted', async () => {
+        settingsProvider.settings.pinnedTagOrderByTag = {
+            projects: ['Vault/One.md', 'Vault/Two.md']
+        };
+
+        await service.handleFileRename('Vault/One.md', 'Vault/Renamed.md');
+        expect(service.getPinnedTagOrder('projects')).toEqual(['Vault/Renamed.md', 'Vault/Two.md']);
+
+        await service.handleFileDelete('Vault/Two.md');
+        expect(service.getPinnedTagOrder('projects')).toEqual(['Vault/Renamed.md']);
+    });
+
     it('treats legacy folder+tag pins as pinned in property context', () => {
         settingsProvider.settings.pinnedNotes = {
             'Vault/Legacy.md': { folder: true, tag: true }

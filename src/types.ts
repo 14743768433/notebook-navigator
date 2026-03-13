@@ -111,6 +111,7 @@ export type NavigatorContext = 'folder' | 'tag' | 'property';
  * Maps file paths to their pinning context states
  */
 export type PinnedNotes = Record<string, Record<NavigatorContext, boolean>>;
+export type PinnedTagOrderByTag = Record<string, string[]>;
 
 /**
  * Enum for navigation pane item types

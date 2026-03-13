@@ -44,6 +44,7 @@ import { useMetadataService } from '../context/ServicesContext';
 import { useSettingsDerived, useSettingsState } from '../context/SettingsContext';
 import { useUXPreferences } from '../context/UXPreferencesContext';
 import { useFileCache } from '../context/StorageContext';
+import { useSelectionState } from '../context/SelectionContext';
 import { useContextMenu } from '../hooks/useContextMenu';
 import { useListPaneAppearance } from '../hooks/useListPaneAppearance';
 import { useShortcuts } from '../context/ShortcutsContext';
@@ -105,6 +106,7 @@ interface FileItemProps {
     visiblePropertyKeys: ReadonlySet<string>;
     /** Visible frontmatter property keys in navigation pane (normalized keys) */
     visibleNavigationPropertyKeys: ReadonlySet<string>;
+    disableNativeDrag?: boolean;
 }
 
 /**
@@ -288,11 +290,13 @@ export const FileItem = React.memo(function FileItem({
     localDayReference,
     fileIconSize,
     visiblePropertyKeys,
-    visibleNavigationPropertyKeys
+    visibleNavigationPropertyKeys,
+    disableNativeDrag = false
 }: FileItemProps) {
     // === Hooks (all hooks together at the top) ===
     const { app, isMobile, plugin, commandQueue, tagOperations } = useServices();
     const settings = useSettingsState();
+    const selectionState = useSelectionState();
     const { fileNameIconNeedles } = useSettingsDerived();
     const uxPreferences = useUXPreferences();
     const includeDescendantNotes = uxPreferences.includeDescendantNotes;
@@ -785,7 +789,10 @@ export const FileItem = React.memo(function FileItem({
     };
 
     const pinContext = getNavigatorPinContext(selectionType ?? null);
-    const isPinnedInCurrentContext = metadataService.isFilePinned(file.path, pinContext);
+    const isPinnedInCurrentContext =
+        selectionState.selectionType === ItemType.TAG && selectionState.selectedTag
+            ? metadataService.isFilePinnedInTagView(file.path, selectionState.selectedTag)
+            : metadataService.isFilePinned(file.path, pinContext);
 
     // Quick action handlers - these don't need memoization because:
     // 1. They're only attached to DOM elements that appear on hover
@@ -803,6 +810,11 @@ export const FileItem = React.memo(function FileItem({
         e.preventDefault();
         runAsyncAction(async () => {
             if (!file.parent) {
+                return;
+            }
+
+            if (selectionState.selectionType === ItemType.TAG && selectionState.selectedTag) {
+                await metadataService.togglePinnedInTagView(file.path, selectionState.selectedTag);
                 return;
             }
 
@@ -1010,14 +1022,14 @@ export const FileItem = React.memo(function FileItem({
             // Type of item being dragged (folder, file, or tag)
             data-drag-type="file"
             // Marks element as draggable for event delegation
-            data-draggable={!isMobile ? 'true' : undefined}
+            data-draggable={!isMobile && !disableNativeDrag ? 'true' : undefined}
             // Icon to display in drag ghost
             data-drag-icon={dragIconId}
             // Icon color to display in drag ghost
             data-drag-icon-color={dragIconColor}
             onClick={handleItemClick}
             onMouseDown={handleMouseDown}
-            draggable={!isMobile}
+            draggable={!isMobile && !disableNativeDrag}
             role="listitem"
             onMouseEnter={() => !isMobile && setIsHovered(true)}
             onMouseLeave={() => !isMobile && setIsHovered(false)}

@@ -19,7 +19,7 @@
 import { DEFAULT_CUSTOM_COLORS } from '../constants/colorPalette';
 import { getDefaultKeyboardShortcuts } from '../utils/keyboardShortcuts';
 import { FILE_VISIBILITY } from '../utils/fileTypeUtils';
-import { LISTPANE_MEASUREMENTS, NAVPANE_MEASUREMENTS, type PinnedNotes } from '../types';
+import { LISTPANE_MEASUREMENTS, NAVPANE_MEASUREMENTS, type PinnedNotes, type PinnedTagOrderByTag } from '../types';
 import { DEFAULT_UI_SCALE } from '../utils/uiScale';
 import type { FolderAppearance, TagAppearance } from '../hooks/useListPaneAppearance';
 import { SYNC_MODE_SETTING_IDS, type NavRainbowSettings, type NotebookNavigatorSettings, type SettingSyncMode } from './types';
@@ -382,6 +382,7 @@ export const DEFAULT_SETTINGS: NotebookNavigatorSettings = {
     // Runtime state and cached data
     customVaultName: '',
     pinnedNotes: sanitizeRecord<PinnedNotes[string]>(undefined),
+    pinnedTagOrderByTag: sanitizeRecord<PinnedTagOrderByTag[string]>(undefined),
     fileIcons: sanitizeRecord<string>(undefined),
     fileColors: sanitizeRecord<string>(undefined),
     fileBackgroundColors: sanitizeRecord<string>(undefined),

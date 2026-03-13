@@ -24,7 +24,8 @@ import { isNoteShortcut } from '../../types/shortcuts';
 import type { NotebookNavigatorSettings } from '../../settings';
 import { getDBInstance } from '../../storage/fileOperations';
 import { deserializeIconFromFrontmatterCompat, normalizeCanonicalIconId, serializeIconForFrontmatter } from '../../utils/iconizeFormat';
-import { normalizePinnedNoteContext } from '../../utils/recordUtils';
+import { normalizePinnedNoteContext, normalizePinnedPathOrder } from '../../utils/recordUtils';
+import { normalizeTagPath } from '../../utils/tagUtils';
 
 /**
  * Service for managing file-specific metadata operations
@@ -45,6 +46,121 @@ export interface FileMetadataMigrationResult {
 
 export class FileMetadataService extends BaseMetadataService {
     private static readonly VAULT_ICON_PROVIDER_ID = 'vault';
+
+    private getNormalizedTagPinKey(tagPath: string): string | null {
+        return normalizeTagPath(tagPath);
+    }
+
+    private getPinnedTagOrderStore(settings: NotebookNavigatorSettings): NotebookNavigatorSettings['pinnedTagOrderByTag'] {
+        if (!settings.pinnedTagOrderByTag) {
+            settings.pinnedTagOrderByTag = {};
+        }
+
+        return settings.pinnedTagOrderByTag;
+    }
+
+    private setPinnedTagOrder(settings: NotebookNavigatorSettings, tagPath: string, orderedPaths: readonly string[]): boolean {
+        const normalizedTag = this.getNormalizedTagPinKey(tagPath);
+        if (!normalizedTag) {
+            return false;
+        }
+
+        const store = this.getPinnedTagOrderStore(settings);
+        const normalizedPaths = normalizePinnedPathOrder(orderedPaths);
+        const existing = normalizePinnedPathOrder(store[normalizedTag]);
+
+        if (normalizedPaths.length === 0) {
+            if (existing.length === 0) {
+                return false;
+            }
+
+            delete store[normalizedTag];
+            return true;
+        }
+
+        if (existing.length === normalizedPaths.length && existing.every((path, index) => path === normalizedPaths[index])) {
+            return false;
+        }
+
+        store[normalizedTag] = normalizedPaths;
+        return true;
+    }
+
+    private removePinnedTagPathAcrossAllTags(settings: NotebookNavigatorSettings, filePath: string): boolean {
+        const store = this.getPinnedTagOrderStore(settings);
+        let changed = false;
+
+        Object.entries(store).forEach(([tagPath, paths]) => {
+            const nextPaths = normalizePinnedPathOrder(paths).filter(path => path !== filePath);
+            changed = this.setPinnedTagOrder(settings, tagPath, nextPaths) || changed;
+        });
+
+        return changed;
+    }
+
+    private renamePinnedTagPathAcrossAllTags(settings: NotebookNavigatorSettings, oldPath: string, newPath: string): boolean {
+        const store = this.getPinnedTagOrderStore(settings);
+        let changed = false;
+
+        Object.entries(store).forEach(([tagPath, paths]) => {
+            if (!normalizePinnedPathOrder(paths).includes(oldPath)) {
+                return;
+            }
+
+            const nextPaths = normalizePinnedPathOrder(paths).map(path => (path === oldPath ? newPath : path));
+            changed = this.setPinnedTagOrder(settings, tagPath, nextPaths) || changed;
+        });
+
+        return changed;
+    }
+
+    isPinnedInTagView(filePath: string, tagPath: string): boolean {
+        const normalizedTag = this.getNormalizedTagPinKey(tagPath);
+        if (!normalizedTag) {
+            return false;
+        }
+
+        return normalizePinnedPathOrder(this.settingsProvider.settings.pinnedTagOrderByTag?.[normalizedTag]).includes(filePath);
+    }
+
+    getPinnedTagOrder(tagPath: string): string[] {
+        const normalizedTag = this.getNormalizedTagPinKey(tagPath);
+        if (!normalizedTag) {
+            return [];
+        }
+
+        return normalizePinnedPathOrder(this.settingsProvider.settings.pinnedTagOrderByTag?.[normalizedTag]);
+    }
+
+    async togglePinnedInTagView(filePath: string, tagPath: string): Promise<void> {
+        const normalizedTag = this.getNormalizedTagPinKey(tagPath);
+        if (!normalizedTag) {
+            return;
+        }
+
+        await this.saveAndUpdate(settings => {
+            const currentPaths = normalizePinnedPathOrder(this.getPinnedTagOrderStore(settings)[normalizedTag]);
+            const isPinned = currentPaths.includes(filePath);
+            if (isPinned) {
+                return this.setPinnedTagOrder(
+                    settings,
+                    normalizedTag,
+                    currentPaths.filter(path => path !== filePath)
+                );
+            }
+
+            return this.setPinnedTagOrder(settings, normalizedTag, [...currentPaths, filePath]);
+        });
+    }
+
+    async reorderPinnedInTagView(tagPath: string, orderedPaths: string[]): Promise<void> {
+        const normalizedTag = this.getNormalizedTagPinKey(tagPath);
+        if (!normalizedTag) {
+            return;
+        }
+
+        await this.saveAndUpdate(settings => this.setPinnedTagOrder(settings, normalizedTag, orderedPaths));
+    }
 
     /**
      * Gets a TFile instance from a file path
@@ -479,17 +595,22 @@ export class FileMetadataService extends BaseMetadataService {
      */
     async handleFileDelete(filePath: string): Promise<void> {
         await this.saveAndUpdate(settings => {
+            let changed = this.removePinnedTagPathAcrossAllTags(settings, filePath);
             if (settings.pinnedNotes?.[filePath]) {
                 delete settings.pinnedNotes[filePath];
+                changed = true;
             }
             if (settings.fileIcons?.[filePath]) {
                 delete settings.fileIcons[filePath];
+                changed = true;
             }
             if (settings.fileColors?.[filePath]) {
                 delete settings.fileColors[filePath];
+                changed = true;
             }
             if (settings.fileBackgroundColors?.[filePath]) {
                 delete settings.fileBackgroundColors[filePath];
+                changed = true;
             }
 
             this.updateShortcuts(settings, shortcut => {
@@ -498,6 +619,7 @@ export class FileMetadataService extends BaseMetadataService {
                 }
                 return shortcut.path === filePath ? null : undefined;
             });
+            return changed;
         });
     }
 
@@ -513,6 +635,7 @@ export class FileMetadataService extends BaseMetadataService {
 
         await this.saveAndUpdate(settings => {
             let changed = false;
+            changed = this.renamePinnedTagPathAcrossAllTags(settings, oldPath, newPath) || changed;
             if (settings.pinnedNotes?.[oldPath]) {
                 // Save contexts and delete old entry
                 const contexts = settings.pinnedNotes[oldPath];
@@ -864,6 +987,28 @@ export class FileMetadataService extends BaseMetadataService {
                 }
 
                 hasChanges = true;
+            }
+        }
+
+        const pinnedTagOrderByTag = targetSettings.pinnedTagOrderByTag;
+        if (pinnedTagOrderByTag && Object.keys(pinnedTagOrderByTag).length > 0) {
+            const applyTagCleanup = (settings: NotebookNavigatorSettings) => {
+                let changed = false;
+                Object.entries(settings.pinnedTagOrderByTag ?? {}).forEach(([tagPath, paths]) => {
+                    const nextPaths = normalizePinnedPathOrder(paths).filter(path => validators.vaultFiles.has(path));
+                    changed = this.setPinnedTagOrder(settings, tagPath, nextPaths) || changed;
+                });
+                return changed;
+            };
+
+            if (targetSettings === this.settingsProvider.settings) {
+                const changed = applyTagCleanup(this.settingsProvider.settings);
+                if (changed) {
+                    await this.settingsProvider.saveSettingsAndUpdate();
+                }
+                hasChanges = hasChanges || changed;
+            } else {
+                hasChanges = applyTagCleanup(targetSettings) || hasChanges;
             }
         }
 

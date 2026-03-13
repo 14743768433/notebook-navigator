@@ -38,7 +38,7 @@ import {
     cloneShortcuts,
     getActiveVaultProfile
 } from '../utils/vaultProfiles';
-import { clonePinnedNotesRecord, isStringRecordValue, sanitizeRecord } from '../utils/recordUtils';
+import { clonePinnedNotesRecord, clonePinnedTagOrderByTagRecord, isStringRecordValue, sanitizeRecord } from '../utils/recordUtils';
 import { areStringArraysEqual } from '../utils/arrayUtils';
 import type { FolderAppearance } from '../hooks/useListPaneAppearance';
 import { buildFileNameIconNeedles, type FileNameIconNeedle } from '../utils/fileIconUtils';
@@ -254,7 +254,8 @@ export function SettingsProvider({ children, plugin }: SettingsProviderProps) {
             folderAppearances: cloneAppearanceMap(plugin.settings.folderAppearances),
             tagAppearances: cloneAppearanceMap(plugin.settings.tagAppearances),
             propertyAppearances: cloneAppearanceMap(plugin.settings.propertyAppearances),
-            pinnedNotes: clonePinnedNotesRecord(plugin.settings.pinnedNotes)
+            pinnedNotes: clonePinnedNotesRecord(plugin.settings.pinnedNotes),
+            pinnedTagOrderByTag: clonePinnedTagOrderByTagRecord(plugin.settings.pinnedTagOrderByTag)
         };
         // Deep copy vault profiles to prevent mutations from affecting the original settings
         if (Array.isArray(plugin.settings.vaultProfiles)) {

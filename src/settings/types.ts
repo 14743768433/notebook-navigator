@@ -18,7 +18,7 @@
 
 import type { FileVisibility } from '../utils/fileTypeUtils';
 import type { FolderAppearance, TagAppearance } from '../hooks/useListPaneAppearance';
-import type { BackgroundMode, DualPaneOrientation, PinnedNotes } from '../types';
+import type { BackgroundMode, DualPaneOrientation, PinnedNotes, PinnedTagOrderByTag } from '../types';
 import type { FolderNoteCreationPreference } from '../types/folderNote';
 import type { KeyboardShortcutConfig } from '../utils/keyboardShortcuts';
 import type { ShortcutEntry } from '../types/shortcuts';
@@ -530,6 +530,7 @@ export interface NotebookNavigatorSettings {
     // Runtime state and cached data
     customVaultName: string;
     pinnedNotes: PinnedNotes;
+    pinnedTagOrderByTag: PinnedTagOrderByTag;
     fileIcons: Record<string, string>;
     fileColors: Record<string, string>;
     fileBackgroundColors: Record<string, string>;

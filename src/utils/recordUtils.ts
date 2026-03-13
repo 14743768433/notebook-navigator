@@ -126,6 +126,49 @@ export function clonePinnedNotesRecord(value: unknown): Record<string, PinnedNot
     return cloned;
 }
 
+export function normalizePinnedPathOrder(value: unknown): string[] {
+    if (!Array.isArray(value)) {
+        return [];
+    }
+
+    const seen = new Set<string>();
+    const normalized: string[] = [];
+
+    value.forEach(entry => {
+        if (typeof entry !== 'string') {
+            return;
+        }
+
+        const path = entry.trim();
+        if (path.length === 0 || seen.has(path)) {
+            return;
+        }
+
+        seen.add(path);
+        normalized.push(path);
+    });
+
+    return normalized;
+}
+
+export function clonePinnedTagOrderByTagRecord(value: unknown): Record<string, string[]> {
+    const cloned = sanitizeRecord<string[]>(undefined);
+    if (!isPlainObjectRecordValue(value)) {
+        return cloned;
+    }
+
+    Object.entries(value).forEach(([tagPath, paths]) => {
+        const normalizedPaths = normalizePinnedPathOrder(paths);
+        if (normalizedPaths.length === 0) {
+            return;
+        }
+
+        cloned[tagPath] = normalizedPaths;
+    });
+
+    return cloned;
+}
+
 export function casefold(value: string): string {
     const trimmed = value.trim();
     if (trimmed.length === 0) {

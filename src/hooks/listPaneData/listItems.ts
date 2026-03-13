@@ -28,6 +28,7 @@ import { resolveListGrouping } from '../../utils/listGrouping';
 import { partitionPinnedFiles } from '../../utils/fileFinder';
 import { createHiddenTagVisibility } from '../../utils/tagPrefixMatcher';
 import { getCachedFileTags } from '../../utils/tagUtils';
+import { normalizeTagPath } from '../../utils/tagUtils';
 import { DateUtils } from '../../utils/dateUtils';
 import type { SearchResultMeta } from '../../types/search';
 import type { IndexedDBStorage } from '../../storage/IndexedDBStorage';
@@ -40,6 +41,7 @@ export interface ListPaneConfig {
     folderTreeSortOverrides: NotebookNavigatorSettings['folderTreeSortOverrides'];
     noteGrouping: NotebookNavigatorSettings['noteGrouping'];
     pinnedNotes: NotebookNavigatorSettings['pinnedNotes'];
+    pinnedTagOrderByTag: NotebookNavigatorSettings['pinnedTagOrderByTag'];
     propertyAppearances: NotebookNavigatorSettings['propertyAppearances'];
     showFileTags: boolean;
     showPinnedGroupHeader: boolean;
@@ -110,7 +112,27 @@ export function buildListItems({
                 ? { restrictToPropertyNodeId: selectedProperty, db }
                 : undefined
         : undefined;
-    const { pinnedFiles, unpinnedFiles } = partitionPinnedFiles(files, listConfig.pinnedNotes, contextFilter, pinnedDisplayScope);
+    const { pinnedFiles, unpinnedFiles } =
+        selectionType === ItemType.TAG && selectedTag
+            ? (() => {
+                  const normalizedTag = normalizeTagPath(selectedTag);
+                  if (!normalizedTag) {
+                      return { pinnedFiles: [] as TFile[], unpinnedFiles: files };
+                  }
+
+                  const filesByPath = new Map(files.map(file => [file.path, file] as const));
+                  const pinnedPaths = listConfig.pinnedTagOrderByTag[normalizedTag] ?? [];
+                  const pinnedFiles = pinnedPaths
+                      .map(path => filesByPath.get(path) ?? null)
+                      .filter((file): file is TFile => file !== null);
+                  const pinnedSet = new Set(pinnedFiles.map(file => file.path));
+
+                  return {
+                      pinnedFiles,
+                      unpinnedFiles: files.filter(file => !pinnedSet.has(file.path))
+                  };
+              })()
+            : partitionPinnedFiles(files, listConfig.pinnedNotes, contextFilter, pinnedDisplayScope);
     const shouldDetectTags = listConfig.showTags && listConfig.showFileTags;
     const hiddenTagVisibility = shouldDetectTags ? createHiddenTagVisibility(hiddenTags, showHiddenItems) : null;
     const fileHasTags = shouldDetectTags

@@ -54,6 +54,7 @@ function createListConfig(pinnedNotes: ListPaneConfig['pinnedNotes']): ListPaneC
         folderTreeSortOverrides: DEFAULT_SETTINGS.folderTreeSortOverrides,
         noteGrouping: DEFAULT_SETTINGS.noteGrouping,
         pinnedNotes,
+        pinnedTagOrderByTag: DEFAULT_SETTINGS.pinnedTagOrderByTag,
         propertyAppearances: DEFAULT_SETTINGS.propertyAppearances,
         showFileTags: false,
         showPinnedGroupHeader: true,
@@ -103,9 +104,12 @@ describe('buildListItems pinned display scope', () => {
             getFileTimestamps: () => ({ created: 0, modified: 0 }),
             hiddenFileState: new Map(),
             hiddenTags: [],
-            listConfig: createListConfig({
-                [childFile.path]: { folder: false, tag: true, property: false }
-            }),
+            listConfig: {
+                ...createListConfig({}),
+                pinnedTagOrderByTag: {
+                    'work/anthropic': [childFile.path]
+                }
+            },
             searchMetaMap: new Map(),
             selectedFolder: null,
             selectedProperty: null,
@@ -140,9 +144,12 @@ describe('buildListItems pinned display scope', () => {
             getFileTimestamps: () => ({ created: 0, modified: 0 }),
             hiddenFileState: new Map(),
             hiddenTags: [],
-            listConfig: createListConfig({
-                [childFile.path]: { folder: false, tag: true, property: false }
-            }),
+            listConfig: {
+                ...createListConfig({}),
+                pinnedTagOrderByTag: {
+                    'work/anthropic': [childFile.path]
+                }
+            },
             searchMetaMap: new Map(),
             selectedFolder: null,
             selectedProperty: null,
@@ -183,9 +190,12 @@ describe('buildListItems pinned display scope', () => {
             getFileTimestamps: () => ({ created: 0, modified: 0 }),
             hiddenFileState: new Map(),
             hiddenTags: [],
-            listConfig: createListConfig({
-                [valueFile.path]: { folder: false, tag: false, property: true }
-            }),
+            listConfig: {
+                ...createListConfig({}),
+                pinnedNotes: {
+                    [valueFile.path]: { folder: false, tag: false, property: true }
+                }
+            },
             searchMetaMap: new Map(),
             selectedFolder: null,
             selectedProperty: buildPropertyKeyNodeId('status'),
@@ -226,9 +236,12 @@ describe('buildListItems pinned display scope', () => {
             getFileTimestamps: () => ({ created: 0, modified: 0 }),
             hiddenFileState: new Map(),
             hiddenTags: [],
-            listConfig: createListConfig({
-                [valueFile.path]: { folder: false, tag: false, property: true }
-            }),
+            listConfig: {
+                ...createListConfig({}),
+                pinnedNotes: {
+                    [valueFile.path]: { folder: false, tag: false, property: true }
+                }
+            },
             searchMetaMap: new Map(),
             selectedFolder: null,
             selectedProperty: buildPropertyValueNodeId('status', 'work/anthropic'),

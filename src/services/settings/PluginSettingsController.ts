@@ -70,6 +70,7 @@ import {
 import { getDefaultDateFormat, getDefaultTimeFormat } from '../../i18n';
 import {
     clonePinnedNotesRecord,
+    clonePinnedTagOrderByTagRecord,
     isBooleanRecordValue,
     isPlainObjectRecordValue,
     isStringRecordValue,
@@ -828,6 +829,7 @@ export class PluginSettingsController {
         this.currentSettings.externalIconProviders = sanitizeBooleanMap(this.currentSettings.externalIconProviders);
         this.currentSettings.syncModes = sanitizeSettingsSyncMap(this.currentSettings.syncModes);
         this.currentSettings.pinnedNotes = clonePinnedNotesRecord(this.currentSettings.pinnedNotes);
+        this.currentSettings.pinnedTagOrderByTag = clonePinnedTagOrderByTagRecord(this.currentSettings.pinnedTagOrderByTag);
     }
 
     private normalizeTaskSettings(): void {

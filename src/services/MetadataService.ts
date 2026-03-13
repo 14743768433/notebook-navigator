@@ -409,12 +409,28 @@ export class MetadataService {
         return this.fileService.pinNotes(filePaths, context);
     }
 
+    async togglePinnedInTagView(filePath: string, tagPath: string): Promise<void> {
+        return this.fileService.togglePinnedInTagView(filePath, tagPath);
+    }
+
     isFilePinned(filePath: string, context?: NavigatorContext): boolean {
         return this.fileService.isPinned(filePath, context);
     }
 
+    isFilePinnedInTagView(filePath: string, tagPath: string): boolean {
+        return this.fileService.isPinnedInTagView(filePath, tagPath);
+    }
+
     getPinnedNotes(context?: NavigatorContext): string[] {
         return this.fileService.getPinnedNotes(context);
+    }
+
+    getPinnedTagOrder(tagPath: string): string[] {
+        return this.fileService.getPinnedTagOrder(tagPath);
+    }
+
+    async reorderPinnedInTagView(tagPath: string, orderedPaths: string[]): Promise<void> {
+        return this.fileService.reorderPinnedInTagView(tagPath, orderedPaths);
     }
 
     async setFileIcon(filePath: string, iconId: string): Promise<void> {

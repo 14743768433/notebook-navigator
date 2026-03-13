@@ -684,18 +684,7 @@ export function getFilesForTag(
     const sortOption = getEffectiveSortOption(settings, 'tag', null, tag);
     sortNavigationFiles(filteredFiles, settings, app, sortOption);
 
-    const pinnedDisplayScope = settings.filterPinnedByFolder
-        ? {
-              restrictToTagPath:
-                  tag === TAGGED_TAG_ID || tag === UNTAGGED_TAG_ID
-                      ? tag
-                      : (tagTreeService?.findTagNode(tag)?.path ?? normalizeTagPathValue(tag)),
-              app,
-              db
-          }
-        : undefined;
-
-    return applyPinnedOrdering(filteredFiles, settings, 'tag', pinnedDisplayScope);
+    return filteredFiles;
 }
 
 /**

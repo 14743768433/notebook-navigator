@@ -320,7 +320,7 @@ export function buildFileMenu(params: FileMenuBuilderParams): void {
         }
 
         const pinContext = getNavigatorPinContext(selectionState.selectionType);
-        addSingleFilePinOption(menu, file, metadataService, pinContext);
+        addSingleFilePinOption(menu, file, metadataService, pinContext, selectionState.selectedTag ?? null);
 
         menu.addSeparator();
     }
@@ -839,8 +839,17 @@ function addMultipleFilesOpenOptions(
 /**
  * Add pin option for a single file
  */
-function addSingleFilePinOption(menu: Menu, file: TFile, metadataService: MetadataService, context: NavigatorContext): void {
-    const isPinned = metadataService.isFilePinned(file.path, context);
+function addSingleFilePinOption(
+    menu: Menu,
+    file: TFile,
+    metadataService: MetadataService,
+    context: NavigatorContext,
+    selectedTag: string | null
+): void {
+    const isPinned =
+        context === ItemType.TAG && selectedTag
+            ? metadataService.isFilePinnedInTagView(file.path, selectedTag)
+            : metadataService.isFilePinned(file.path, context);
 
     menu.addItem((item: MenuItem) => {
         setAsyncOnClick(
@@ -857,6 +866,11 @@ function addSingleFilePinOption(menu: Menu, file: TFile, metadataService: Metada
                 .setIcon('lucide-pin'),
             async () => {
                 if (!file.parent) return;
+
+                if (context === ItemType.TAG && selectedTag) {
+                    await metadataService.togglePinnedInTagView(file.path, selectedTag);
+                    return;
+                }
 
                 await metadataService.togglePin(file.path, context);
             }

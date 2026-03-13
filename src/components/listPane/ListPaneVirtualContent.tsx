@@ -17,12 +17,16 @@
  */
 
 import React, { useCallback, useMemo } from 'react';
+import { DndContext, MouseSensor, TouchSensor, type DragEndEvent, useSensor, useSensors } from '@dnd-kit/core';
+import { SortableContext, arrayMove, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { TFile, TFolder } from 'obsidian';
 import { Virtualizer } from '@tanstack/react-virtual';
-import { useServices } from '../../context/ServicesContext';
+import { useMetadataService, useServices } from '../../context/ServicesContext';
 import { strings } from '../../i18n';
-import { ListPaneItemType, PINNED_SECTION_HEADER_KEY, type NavigationItemType } from '../../types';
+import { ItemType, ListPaneItemType, PINNED_SECTION_HEADER_KEY, type NavigationItemType } from '../../types';
 import { runAsyncAction } from '../../utils/async';
+import { ROOT_REORDER_MOUSE_CONSTRAINT, ROOT_REORDER_TOUCH_CONSTRAINT, typeFilteredCollisionDetection, verticalAxisOnly } from '../../utils/dndConfig';
 import { getFolderNote, openFolderNoteFile } from '../../utils/folderNotes';
 import { resolveFolderNoteClickOpenContext } from '../../utils/keyboardOpenContext';
 import type { ListPaneItem } from '../../types/virtualization';
@@ -52,6 +56,7 @@ interface ListPaneVirtualContentProps {
     settings: NotebookNavigatorSettings;
     pinnedSectionIcon: string;
     selectionType: NavigationItemType | null;
+    selectedTag: string | null;
     sortOption?: SortOption;
     searchHighlightQuery?: string;
     isFolderNavigation: boolean;
@@ -86,6 +91,72 @@ function getDateGroupLabel(listItems: ListPaneItem[], index: number): string | n
     return null;
 }
 
+interface SortablePinnedFileRowProps {
+    item: ListPaneItem;
+    isSelected: boolean;
+    hasSelectedAbove: boolean;
+    hasSelectedBelow: boolean;
+    onFileClick: (file: TFile, fileIndex: number | undefined, event: React.MouseEvent) => void;
+    selectionType: NavigationItemType | null;
+    sortOption?: SortOption;
+    searchHighlightQuery?: string;
+    onModifySearchWithTag: (tag: string, operator: InclusionOperator) => void;
+    onModifySearchWithProperty: (key: string, value: string | null, operator: InclusionOperator) => void;
+    localDayReference: Date | null;
+    fileIconSize: number;
+    visibleListPropertyKeys: ReadonlySet<string>;
+    visibleNavigationPropertyKeys: ReadonlySet<string>;
+    dateGroup: string | null;
+}
+
+function SortablePinnedFileRow(props: SortablePinnedFileRowProps) {
+    const { item } = props;
+    const { attributes, listeners, setNodeRef, transform, transition } = useSortable({
+        id: item.key,
+        disabled: item.type !== ListPaneItemType.FILE || item.isPinned !== true
+    });
+
+    if (item.type !== ListPaneItemType.FILE || !(item.data instanceof TFile)) {
+        return null;
+    }
+
+    const dragStyle = transform ? { transform: CSS.Transform.toString(transform), transition } : undefined;
+
+    return (
+        <div ref={setNodeRef} style={dragStyle} className="nn-pinned-sortable-row">
+            <FileItem
+                file={item.data}
+                isSelected={props.isSelected}
+                hasSelectedAbove={props.hasSelectedAbove}
+                hasSelectedBelow={props.hasSelectedBelow}
+                onFileClick={props.onFileClick}
+                fileIndex={item.fileIndex}
+                selectionType={props.selectionType}
+                dateGroup={props.dateGroup}
+                sortOption={props.sortOption}
+                parentFolder={item.parentFolder}
+                isPinned={item.isPinned}
+                searchQuery={props.searchHighlightQuery}
+                searchMeta={item.searchMeta}
+                isHidden={Boolean(item.isHidden)}
+                onModifySearchWithTag={props.onModifySearchWithTag}
+                onModifySearchWithProperty={props.onModifySearchWithProperty}
+                localDayReference={props.localDayReference}
+                fileIconSize={props.fileIconSize}
+                visiblePropertyKeys={props.visibleListPropertyKeys}
+                visibleNavigationPropertyKeys={props.visibleNavigationPropertyKeys}
+                disableNativeDrag={true}
+            />
+            <div
+                className="nn-pinned-row-drag-proxy"
+                {...attributes}
+                {...listeners}
+                aria-label="Reorder pinned note"
+            />
+        </div>
+    );
+}
+
 export function ListPaneVirtualContent({
     listItems,
     rowVirtualizer,
@@ -98,6 +169,7 @@ export function ListPaneVirtualContent({
     settings,
     pinnedSectionIcon,
     selectionType,
+    selectedTag,
     sortOption,
     searchHighlightQuery,
     isFolderNavigation,
@@ -113,6 +185,11 @@ export function ListPaneVirtualContent({
     onNavigateToFolder
 }: ListPaneVirtualContentProps) {
     const { app, commandQueue, isMobile } = useServices();
+    const metadataService = useMetadataService();
+    const sensors = useSensors(
+        useSensor(MouseSensor, { activationConstraint: ROOT_REORDER_MOUSE_CONSTRAINT }),
+        useSensor(TouchSensor, { activationConstraint: ROOT_REORDER_TOUCH_CONSTRAINT })
+    );
 
     const folderGroupHeaderTargets = useMemo(() => {
         const targets = new Map<string, FolderGroupHeaderTarget>();
@@ -213,6 +290,44 @@ export function ListPaneVirtualContent({
         [app, commandQueue, onNavigateToFolder]
     );
 
+    const pinnedSortableIds = useMemo(() => {
+        if (selectionType !== ItemType.TAG || !selectedTag) {
+            return [];
+        }
+
+        return listItems
+            .filter(item => item.type === ListPaneItemType.FILE && item.isPinned === true)
+            .map(item => item.key);
+    }, [listItems, selectedTag, selectionType]);
+
+    const handlePinnedDragEnd = useCallback(
+        (event: DragEndEvent) => {
+            if (!selectedTag) {
+                return;
+            }
+
+            const activeId = String(event.active.id);
+            const overId = event.over ? String(event.over.id) : null;
+            if (!overId || activeId === overId) {
+                return;
+            }
+
+            const currentPinnedPaths = listItems
+                .filter(item => item.type === ListPaneItemType.FILE && item.isPinned === true)
+                .map(item => item.key);
+            const oldIndex = currentPinnedPaths.indexOf(activeId);
+            const newIndex = currentPinnedPaths.indexOf(overId);
+            if (oldIndex === -1 || newIndex === -1) {
+                return;
+            }
+
+            runAsyncAction(async () => {
+                await metadataService.reorderPinnedInTagView(selectedTag, arrayMove(currentPinnedPaths, oldIndex, newIndex));
+            });
+        },
+        [listItems, metadataService, selectedTag]
+    );
+
     return (
         <div
             ref={scrollContainerRefCallback}
@@ -235,12 +350,19 @@ export function ListPaneVirtualContent({
                         <div className="nn-empty-message">{strings.listPane.emptyStateNoNotes}</div>
                     </div>
                 ) : listItems.length > 0 ? (
-                    <div
-                        className="nn-virtual-container"
-                        style={{
-                            height: `${rowVirtualizer.getTotalSize()}px`
-                        }}
+                    <DndContext
+                        sensors={pinnedSortableIds.length > 0 ? sensors : undefined}
+                        collisionDetection={typeFilteredCollisionDetection}
+                        modifiers={[verticalAxisOnly]}
+                        onDragEnd={handlePinnedDragEnd}
                     >
+                        <SortableContext items={pinnedSortableIds} strategy={verticalListSortingStrategy}>
+                            <div
+                                className="nn-virtual-container"
+                                style={{
+                                    height: `${rowVirtualizer.getTotalSize()}px`
+                                }}
+                            >
                         {rowVirtualizer.getVirtualItems().map(virtualItem => {
                             const item = getItemAt(listItems, virtualItem.index);
                             if (!item) {
@@ -349,34 +471,56 @@ export function ListPaneVirtualContent({
                                     ) : item.type === ListPaneItemType.BOTTOM_SPACER ? (
                                         <div className="nn-list-bottom-spacer" />
                                     ) : item.type === ListPaneItemType.FILE && item.data instanceof TFile ? (
-                                        <FileItem
-                                            key={item.key}
-                                            file={item.data}
-                                            isSelected={isSelected}
-                                            hasSelectedAbove={hasSelectedAbove}
-                                            hasSelectedBelow={hasSelectedBelow}
-                                            onFileClick={onFileClick}
-                                            fileIndex={item.fileIndex}
-                                            selectionType={selectionType}
-                                            dateGroup={dateGroup}
-                                            sortOption={sortOption}
-                                            parentFolder={item.parentFolder}
-                                            isPinned={item.isPinned}
-                                            searchQuery={searchHighlightQuery}
-                                            searchMeta={item.searchMeta}
-                                            isHidden={Boolean(item.isHidden)}
-                                            onModifySearchWithTag={onModifySearchWithTag}
-                                            onModifySearchWithProperty={onModifySearchWithProperty}
-                                            localDayReference={localDayReference}
-                                            fileIconSize={fileIconSize}
-                                            visiblePropertyKeys={visibleListPropertyKeys}
-                                            visibleNavigationPropertyKeys={visibleNavigationPropertyKeys}
-                                        />
+                                        item.isPinned && selectionType === ItemType.TAG && selectedTag ? (
+                                            <SortablePinnedFileRow
+                                                item={item}
+                                                isSelected={isSelected}
+                                                hasSelectedAbove={hasSelectedAbove}
+                                                hasSelectedBelow={hasSelectedBelow}
+                                                onFileClick={onFileClick}
+                                                selectionType={selectionType}
+                                                sortOption={sortOption}
+                                                searchHighlightQuery={searchHighlightQuery}
+                                                onModifySearchWithTag={onModifySearchWithTag}
+                                                onModifySearchWithProperty={onModifySearchWithProperty}
+                                                localDayReference={localDayReference}
+                                                fileIconSize={fileIconSize}
+                                                visibleListPropertyKeys={visibleListPropertyKeys}
+                                                visibleNavigationPropertyKeys={visibleNavigationPropertyKeys}
+                                                dateGroup={dateGroup}
+                                            />
+                                        ) : (
+                                            <FileItem
+                                                key={item.key}
+                                                file={item.data}
+                                                isSelected={isSelected}
+                                                hasSelectedAbove={hasSelectedAbove}
+                                                hasSelectedBelow={hasSelectedBelow}
+                                                onFileClick={onFileClick}
+                                                fileIndex={item.fileIndex}
+                                                selectionType={selectionType}
+                                                dateGroup={dateGroup}
+                                                sortOption={sortOption}
+                                                parentFolder={item.parentFolder}
+                                                isPinned={item.isPinned}
+                                                searchQuery={searchHighlightQuery}
+                                                searchMeta={item.searchMeta}
+                                                isHidden={Boolean(item.isHidden)}
+                                                onModifySearchWithTag={onModifySearchWithTag}
+                                                onModifySearchWithProperty={onModifySearchWithProperty}
+                                                localDayReference={localDayReference}
+                                                fileIconSize={fileIconSize}
+                                                visiblePropertyKeys={visibleListPropertyKeys}
+                                                visibleNavigationPropertyKeys={visibleNavigationPropertyKeys}
+                                            />
+                                        )
                                     ) : null}
                                 </div>
                             );
                         })}
-                    </div>
+                            </div>
+                        </SortableContext>
+                    </DndContext>
                 ) : null}
             </div>
         </div>
