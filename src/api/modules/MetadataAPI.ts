@@ -694,6 +694,18 @@ export class MetadataAPI {
     }
 
     /**
+     * Check whether a file is pinned for a specific tag view only.
+     */
+    isPinnedInTagView(file: TFile, tagPath: string): boolean {
+        const plugin = this.api.getPlugin();
+        if (!plugin?.metadataService) {
+            return false;
+        }
+
+        return plugin.metadataService.isFilePinnedInTagView(file.path, tagPath);
+    }
+
+    /**
      * Pin a file
      * @param file - File to pin
      * @param context - Context to pin in (defaults to 'all')
@@ -746,6 +758,20 @@ export class MetadataAPI {
     }
 
     /**
+     * Pin a file for a single tag view only.
+     */
+    async pinInTagView(file: TFile, tagPath: string): Promise<void> {
+        const plugin = this.api.getPlugin();
+        if (!plugin?.metadataService) {
+            return;
+        }
+
+        if (!plugin.metadataService.isFilePinnedInTagView(file.path, tagPath)) {
+            await plugin.metadataService.togglePinnedInTagView(file.path, tagPath);
+        }
+    }
+
+    /**
      * Unpin a file
      * @param file - File to unpin
      * @param context - Context to unpin from (defaults to 'all')
@@ -791,6 +817,20 @@ export class MetadataAPI {
         // Save settings if anything changed
         if (changed) {
             await plugin.saveSettingsAndUpdate();
+        }
+    }
+
+    /**
+     * Unpin a file from a single tag view only.
+     */
+    async unpinFromTagView(file: TFile, tagPath: string): Promise<void> {
+        const plugin = this.api.getPlugin();
+        if (!plugin?.metadataService) {
+            return;
+        }
+
+        if (plugin.metadataService.isFilePinnedInTagView(file.path, tagPath)) {
+            await plugin.metadataService.togglePinnedInTagView(file.path, tagPath);
         }
     }
 

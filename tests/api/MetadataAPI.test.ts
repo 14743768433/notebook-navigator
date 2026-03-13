@@ -24,14 +24,17 @@ import { TFolder } from 'obsidian';
 
 describe('MetadataAPI icon normalization', () => {
     let foldersByPath: Map<string, TFolder>;
+    type MetadataServiceMock = {
+        setFolderStyle: ReturnType<typeof vi.fn>;
+        getFolderDisplayData: ReturnType<typeof vi.fn>;
+        isFolderStyleEventBridgeEnabled?: ReturnType<typeof vi.fn>;
+        isFilePinnedInTagView?: ReturnType<typeof vi.fn>;
+        togglePinnedInTagView?: ReturnType<typeof vi.fn>;
+    };
     let plugin: {
         settings: NotebookNavigatorSettings;
         saveSettingsAndUpdate: ReturnType<typeof vi.fn>;
-        metadataService: {
-            setFolderStyle: ReturnType<typeof vi.fn>;
-            getFolderDisplayData: ReturnType<typeof vi.fn>;
-            isFolderStyleEventBridgeEnabled?: ReturnType<typeof vi.fn>;
-        } | null;
+        metadataService: MetadataServiceMock | null;
     };
     let api: ConstructorParameters<typeof MetadataAPI>[0];
     let triggerMock: ReturnType<typeof vi.fn>;
@@ -370,5 +373,32 @@ describe('MetadataAPI icon normalization', () => {
             includeIcon: true,
             includeInheritedColors: false
         });
+    });
+
+    it('exposes tag-view-specific pin helpers through the API when metadata service is available', async () => {
+        plugin.metadataService = {
+            setFolderStyle: vi.fn(),
+            getFolderDisplayData: vi.fn(),
+            isFilePinnedInTagView: vi.fn().mockReturnValue(true),
+            togglePinnedInTagView: vi.fn().mockResolvedValue(undefined)
+        } as unknown as typeof plugin.metadataService;
+
+        const metadataAPI = new MetadataAPI(api);
+        const file = { path: 'Vault/Note.md' } as never;
+        const metadataService = plugin.metadataService as MetadataServiceMock;
+
+        expect(metadataAPI.isPinnedInTagView(file, 'projects')).toBe(true);
+
+        await metadataAPI.pinInTagView(file, 'projects');
+        expect(metadataService.togglePinnedInTagView).not.toHaveBeenCalled();
+
+        metadataService.isFilePinnedInTagView = vi.fn().mockReturnValue(false);
+        await metadataAPI.pinInTagView(file, 'projects');
+        expect(metadataService.togglePinnedInTagView).toHaveBeenCalledWith('Vault/Note.md', 'projects');
+
+        metadataService.togglePinnedInTagView = vi.fn().mockResolvedValue(undefined);
+        metadataService.isFilePinnedInTagView = vi.fn().mockReturnValue(true);
+        await metadataAPI.unpinFromTagView(file, 'projects');
+        expect(metadataService.togglePinnedInTagView).toHaveBeenCalledWith('Vault/Note.md', 'projects');
     });
 });

@@ -114,6 +114,26 @@ export class FileMetadataService extends BaseMetadataService {
         return changed;
     }
 
+    private removePinnedTagOrdersForTag(settings: NotebookNavigatorSettings, tagPath: string): boolean {
+        const normalizedTag = this.getNormalizedTagPinKey(tagPath);
+        if (!normalizedTag) {
+            return false;
+        }
+
+        const store = this.getPinnedTagOrderStore(settings);
+        const prefix = `${normalizedTag}/`;
+        let changed = false;
+
+        Object.keys(store).forEach(path => {
+            if (path === normalizedTag || path.startsWith(prefix)) {
+                delete store[path];
+                changed = true;
+            }
+        });
+
+        return changed;
+    }
+
     isPinnedInTagView(filePath: string, tagPath: string): boolean {
         const normalizedTag = this.getNormalizedTagPinKey(tagPath);
         if (!normalizedTag) {
@@ -160,6 +180,25 @@ export class FileMetadataService extends BaseMetadataService {
         }
 
         await this.saveAndUpdate(settings => this.setPinnedTagOrder(settings, normalizedTag, orderedPaths));
+    }
+
+    applyTagRenameToPinnedTagOrder(
+        settings: NotebookNavigatorSettings,
+        oldPath: string,
+        newPath: string,
+        preserveExisting = false
+    ): boolean {
+        const normalizedOld = this.getNormalizedTagPinKey(oldPath);
+        const normalizedNew = this.getNormalizedTagPinKey(newPath);
+        if (!normalizedOld || !normalizedNew || normalizedOld === normalizedNew) {
+            return false;
+        }
+
+        return this.updateNestedPaths(this.getPinnedTagOrderStore(settings), normalizedOld, normalizedNew, preserveExisting);
+    }
+
+    applyTagDeleteToPinnedTagOrder(settings: NotebookNavigatorSettings, tagPath: string): boolean {
+        return this.removePinnedTagOrdersForTag(settings, tagPath);
     }
 
     /**

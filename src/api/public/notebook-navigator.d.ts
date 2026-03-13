@@ -339,10 +339,16 @@ export interface NotebookNavigatorAPI {
         getPinned(): Readonly<Pinned>;
         /** Check if a file is pinned (no context = any, 'all' = all contexts) */
         isPinned(file: TFile, context?: PinContext): boolean;
+        /** Check whether a file is pinned in one specific tag view */
+        isPinnedInTagView(file: TFile, tagPath: string): boolean;
         /** Pin a file (defaults to 'all' - all contexts) */
         pin(file: TFile, context?: PinContext): Promise<void>;
+        /** Pin a file in one specific tag view only */
+        pinInTagView(file: TFile, tagPath: string): Promise<void>;
         /** Unpin a file (defaults to 'all' - all contexts) */
         unpin(file: TFile, context?: PinContext): Promise<void>;
+        /** Unpin a file from one specific tag view only */
+        unpinFromTagView(file: TFile, tagPath: string): Promise<void>;
     };
 
     /** Navigation operations */

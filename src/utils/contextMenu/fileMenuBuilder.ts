@@ -332,7 +332,7 @@ export function buildFileMenu(params: FileMenuBuilderParams): void {
         }
 
         const pinContext = getNavigatorPinContext(selectionState.selectionType);
-        addMultipleFilesPinOption(menu, cachedSelectedFiles, metadataService, pinContext);
+        addMultipleFilesPinOption(menu, cachedSelectedFiles, metadataService, pinContext, selectionState.selectedTag ?? null);
 
         menu.addSeparator();
 
@@ -923,9 +923,17 @@ function addMultipleFilesShortcutOption(
 /**
  * Add pin option for multiple files
  */
-function addMultipleFilesPinOption(menu: Menu, selectedFiles: TFile[], metadataService: MetadataService, context: NavigatorContext): void {
-    const anyUnpinned = selectedFiles.some(f => {
-        return !metadataService.isFilePinned(f.path, context);
+function addMultipleFilesPinOption(
+    menu: Menu,
+    selectedFiles: TFile[],
+    metadataService: MetadataService,
+    context: NavigatorContext,
+    selectedTag: string | null
+): void {
+    const anyUnpinned = selectedFiles.some(file => {
+        return context === ItemType.TAG && selectedTag
+            ? !metadataService.isFilePinnedInTagView(file.path, selectedTag)
+            : !metadataService.isFilePinned(file.path, context);
     });
 
     // Check if all files are markdown
@@ -947,13 +955,23 @@ function addMultipleFilesPinOption(menu: Menu, selectedFiles: TFile[], metadataS
                 .setIcon('lucide-pin'),
             async () => {
                 for (const selectedFile of selectedFiles) {
+                    if (context === ItemType.TAG && selectedTag) {
+                        const isPinnedInTag = metadataService.isFilePinnedInTagView(selectedFile.path, selectedTag);
+                        if (anyUnpinned) {
+                            if (!isPinnedInTag) {
+                                await metadataService.togglePinnedInTagView(selectedFile.path, selectedTag);
+                            }
+                        } else if (isPinnedInTag) {
+                            await metadataService.togglePinnedInTagView(selectedFile.path, selectedTag);
+                        }
+                        continue;
+                    }
+
                     if (anyUnpinned) {
-                        // Pin all unpinned files
                         if (!metadataService.isFilePinned(selectedFile.path, context)) {
                             await metadataService.togglePin(selectedFile.path, context);
                         }
                     } else {
-                        // Unpin all files
                         await metadataService.togglePin(selectedFile.path, context);
                     }
                 }

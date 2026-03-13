@@ -272,7 +272,8 @@ export class MetadataService {
      */
     async handleTagRename(oldPath: string, newPath: string, preserveExisting = false): Promise<void> {
         await this.tagService.handleTagRename(oldPath, newPath, preserveExisting, settings =>
-            this.navigationSeparatorService.applyTagRename(settings, oldPath, newPath, preserveExisting)
+            this.navigationSeparatorService.applyTagRename(settings, oldPath, newPath, preserveExisting) ||
+            this.fileService.applyTagRenameToPinnedTagOrder(settings, oldPath, newPath, preserveExisting)
         );
     }
 
@@ -280,7 +281,12 @@ export class MetadataService {
      * Removes all metadata associated with a tag and its descendants
      */
     async handleTagDelete(tagPath: string): Promise<void> {
-        await this.tagService.handleTagDelete(tagPath, settings => this.navigationSeparatorService.applyTagDelete(settings, tagPath));
+        await this.tagService.handleTagDelete(
+            tagPath,
+            settings =>
+                this.navigationSeparatorService.applyTagDelete(settings, tagPath) ||
+                this.fileService.applyTagDeleteToPinnedTagOrder(settings, tagPath)
+        );
     }
 
     async setTagSortOverride(tagPath: string, sortOption: SortOption): Promise<void> {

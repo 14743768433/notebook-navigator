@@ -184,6 +184,28 @@ describe('FileMetadataService frontmatter integration', () => {
         expect(service.getPinnedTagOrder('projects')).toEqual(['Vault/Renamed.md']);
     });
 
+    it('migrates pinned tag order keys when tags are renamed or deleted', () => {
+        settingsProvider.settings.pinnedTagOrderByTag = {
+            project: ['Vault/Root.md'],
+            'project/child': ['Vault/Child.md'],
+            other: ['Vault/Other.md']
+        };
+
+        const renamed = service.applyTagRenameToPinnedTagOrder(settingsProvider.settings, 'project', 'areas');
+        expect(renamed).toBe(true);
+        expect(settingsProvider.settings.pinnedTagOrderByTag).toEqual({
+            areas: ['Vault/Root.md'],
+            'areas/child': ['Vault/Child.md'],
+            other: ['Vault/Other.md']
+        });
+
+        const deleted = service.applyTagDeleteToPinnedTagOrder(settingsProvider.settings, 'areas');
+        expect(deleted).toBe(true);
+        expect(settingsProvider.settings.pinnedTagOrderByTag).toEqual({
+            other: ['Vault/Other.md']
+        });
+    });
+
     it('treats legacy folder+tag pins as pinned in property context', () => {
         settingsProvider.settings.pinnedNotes = {
             'Vault/Legacy.md': { folder: true, tag: true }
