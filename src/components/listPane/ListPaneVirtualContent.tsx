@@ -112,7 +112,7 @@ interface SortablePinnedFileRowProps {
 
 function SortablePinnedFileRow(props: SortablePinnedFileRowProps) {
     const { item } = props;
-    const { attributes, listeners, setNodeRef, transform, transition } = useSortable({
+    const { attributes, listeners, setNodeRef, transform, transition, isDragging, isSorting } = useSortable({
         id: item.key,
         disabled: item.type !== ListPaneItemType.FILE || item.isPinned !== true
     });
@@ -124,7 +124,14 @@ function SortablePinnedFileRow(props: SortablePinnedFileRowProps) {
     const dragStyle = transform ? { transform: CSS.Transform.toString(transform), transition } : undefined;
 
     return (
-        <div ref={setNodeRef} style={dragStyle} className="nn-pinned-sortable-row">
+        <div
+            ref={setNodeRef}
+            style={dragStyle}
+            className={`nn-pinned-sortable-row${isDragging || isSorting ? ' nn-pinned-sortable-row--dragging' : ''}`}
+            {...attributes}
+            {...listeners}
+            aria-label="Reorder pinned note"
+        >
             <FileItem
                 file={item.data}
                 isSelected={props.isSelected}
@@ -147,12 +154,6 @@ function SortablePinnedFileRow(props: SortablePinnedFileRowProps) {
                 visiblePropertyKeys={props.visibleListPropertyKeys}
                 visibleNavigationPropertyKeys={props.visibleNavigationPropertyKeys}
                 disableNativeDrag={true}
-            />
-            <div
-                className="nn-pinned-row-drag-proxy"
-                {...attributes}
-                {...listeners}
-                aria-label="Reorder pinned note"
             />
         </div>
     );
