@@ -16,7 +16,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import React, { useCallback, useMemo } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { DndContext, MouseSensor, TouchSensor, type DragEndEvent, useSensor, useSensors } from '@dnd-kit/core';
 import { SortableContext, arrayMove, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -27,6 +27,7 @@ import { strings } from '../../i18n';
 import { ItemType, ListPaneItemType, PINNED_SECTION_HEADER_KEY, type NavigationItemType } from '../../types';
 import { runAsyncAction } from '../../utils/async';
 import { ROOT_REORDER_MOUSE_CONSTRAINT, ROOT_REORDER_TOUCH_CONSTRAINT, typeFilteredCollisionDetection, verticalAxisOnly } from '../../utils/dndConfig';
+import { areStringArraysEqual } from '../../utils/arrayUtils';
 import { getFolderNote, openFolderNoteFile } from '../../utils/folderNotes';
 import { resolveFolderNoteClickOpenContext } from '../../utils/keyboardOpenContext';
 import type { ListPaneItem } from '../../types/virtualization';
@@ -186,6 +187,7 @@ export function ListPaneVirtualContent({
 }: ListPaneVirtualContentProps) {
     const { app, commandQueue, isMobile } = useServices();
     const metadataService = useMetadataService();
+    const [localPinnedOrder, setLocalPinnedOrder] = useState<string[] | null>(null);
     const sensors = useSensors(
         useSensor(MouseSensor, { activationConstraint: ROOT_REORDER_MOUSE_CONSTRAINT }),
         useSensor(TouchSensor, { activationConstraint: ROOT_REORDER_TOUCH_CONSTRAINT })
@@ -295,10 +297,73 @@ export function ListPaneVirtualContent({
             return [];
         }
 
-        return listItems
+        const persistedPinnedIds = listItems
             .filter(item => item.type === ListPaneItemType.FILE && item.isPinned === true)
             .map(item => item.key);
-    }, [listItems, selectedTag, selectionType]);
+        if (!localPinnedOrder || !areStringArraysEqual(localPinnedOrder, persistedPinnedIds)) {
+            return persistedPinnedIds;
+        }
+
+        return localPinnedOrder;
+    }, [listItems, localPinnedOrder, selectedTag, selectionType]);
+
+    const renderedListItems = useMemo(() => {
+        if (selectionType !== ItemType.TAG || !selectedTag || !localPinnedOrder || localPinnedOrder.length === 0) {
+            return listItems;
+        }
+
+        const pinnedItemsByPath = new Map<string, ListPaneItem>();
+        const reorderedPinnedItems: ListPaneItem[] = [];
+
+        listItems.forEach(item => {
+            if (item.type === ListPaneItemType.FILE && item.isPinned === true) {
+                pinnedItemsByPath.set(item.key, item);
+            }
+        });
+
+        localPinnedOrder.forEach(path => {
+            const item = pinnedItemsByPath.get(path);
+            if (!item) {
+                return;
+            }
+
+            reorderedPinnedItems.push(item);
+            pinnedItemsByPath.delete(path);
+        });
+
+        pinnedItemsByPath.forEach(item => {
+            reorderedPinnedItems.push(item);
+        });
+
+        let pinnedIndex = 0;
+        return listItems.map(item => {
+            if (item.type === ListPaneItemType.FILE && item.isPinned === true) {
+                const nextItem = reorderedPinnedItems[pinnedIndex];
+                pinnedIndex += 1;
+                return nextItem ?? item;
+            }
+
+            return item;
+        });
+    }, [listItems, localPinnedOrder, selectedTag, selectionType]);
+
+    useEffect(() => {
+        if (!localPinnedOrder) {
+            return;
+        }
+
+        const persistedPinnedIds = listItems
+            .filter(item => item.type === ListPaneItemType.FILE && item.isPinned === true)
+            .map(item => item.key);
+
+        if (areStringArraysEqual(localPinnedOrder, persistedPinnedIds)) {
+            setLocalPinnedOrder(null);
+        }
+    }, [listItems, localPinnedOrder]);
+
+    useEffect(() => {
+        setLocalPinnedOrder(null);
+    }, [selectedTag]);
 
     const handlePinnedDragEnd = useCallback(
         (event: DragEndEvent) => {
@@ -312,20 +377,25 @@ export function ListPaneVirtualContent({
                 return;
             }
 
-            const currentPinnedPaths = listItems
-                .filter(item => item.type === ListPaneItemType.FILE && item.isPinned === true)
-                .map(item => item.key);
+            const currentPinnedPaths = pinnedSortableIds;
             const oldIndex = currentPinnedPaths.indexOf(activeId);
             const newIndex = currentPinnedPaths.indexOf(overId);
             if (oldIndex === -1 || newIndex === -1) {
                 return;
             }
 
+            const nextPinnedPaths = arrayMove(currentPinnedPaths, oldIndex, newIndex);
+            setLocalPinnedOrder(nextPinnedPaths);
+
             runAsyncAction(async () => {
-                await metadataService.reorderPinnedInTagView(selectedTag, arrayMove(currentPinnedPaths, oldIndex, newIndex));
+                try {
+                    await metadataService.reorderPinnedInTagView(selectedTag, nextPinnedPaths);
+                } catch {
+                    setLocalPinnedOrder(null);
+                }
             });
         },
-        [listItems, metadataService, selectedTag]
+        [metadataService, pinnedSortableIds, selectedTag]
     );
 
     return (
@@ -349,7 +419,7 @@ export function ListPaneVirtualContent({
                     <div className="nn-empty-state">
                         <div className="nn-empty-message">{strings.listPane.emptyStateNoNotes}</div>
                     </div>
-                ) : listItems.length > 0 ? (
+                ) : renderedListItems.length > 0 ? (
                     <DndContext
                         sensors={pinnedSortableIds.length > 0 ? sensors : undefined}
                         collisionDetection={typeFilteredCollisionDetection}
@@ -364,7 +434,7 @@ export function ListPaneVirtualContent({
                                 }}
                             >
                         {rowVirtualizer.getVirtualItems().map(virtualItem => {
-                            const item = getItemAt(listItems, virtualItem.index);
+                            const item = getItemAt(renderedListItems, virtualItem.index);
                             if (!item) {
                                 return null;
                             }
@@ -377,11 +447,11 @@ export function ListPaneVirtualContent({
                                 }
                             }
 
-                            const nextItem = getItemAt(listItems, virtualItem.index + 1);
-                            const previousItem = getItemAt(listItems, virtualItem.index - 1);
+                            const nextItem = getItemAt(renderedListItems, virtualItem.index + 1);
+                            const previousItem = getItemAt(renderedListItems, virtualItem.index - 1);
                             const isLastFile =
                                 item.type === ListPaneItemType.FILE &&
-                                (virtualItem.index === listItems.length - 1 ||
+                                (virtualItem.index === renderedListItems.length - 1 ||
                                     (nextItem &&
                                         (nextItem.type === ListPaneItemType.HEADER ||
                                             nextItem.type === ListPaneItemType.TOP_SPACER ||
@@ -405,7 +475,8 @@ export function ListPaneVirtualContent({
                             const folderGroupHeaderTarget =
                                 headerFolderPath !== null ? (folderGroupHeaderTargets.get(headerFolderPath) ?? null) : null;
                             const isClickableFolderGroupHeader = Boolean(folderGroupHeaderTarget) && !isPinnedHeader;
-                            const dateGroup = item.type === ListPaneItemType.FILE ? getDateGroupLabel(listItems, virtualItem.index) : null;
+                            const dateGroup =
+                                item.type === ListPaneItemType.FILE ? getDateGroupLabel(renderedListItems, virtualItem.index) : null;
 
                             const hideSeparator =
                                 item.type === ListPaneItemType.FILE &&
