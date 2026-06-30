@@ -1333,7 +1333,6 @@ export const ListPane = React.memo(
 
         const getManualSortNewFileContext = React.useCallback((): ManualSortNewFilePlacementContext | null => {
             const selectedFilePath = selectedFile?.path ?? null;
-            const placement = settings.manualSortNewNotePlacement;
             const target =
                 selectionType === ItemType.FOLDER && selectedFolder
                     ? { targetType: 'folder' as const, targetKey: selectedFolder.path }
@@ -1360,7 +1359,7 @@ export const ListPane = React.memo(
                 planningInsertionIndex: planningContext.insertionIndex,
                 selectedFilePath,
                 rankByPath: planningContext.rankByPath,
-                placement
+                placement: 'bottom'
             };
         }, [
             canUsePropertyKeyboardReorder,
@@ -1371,8 +1370,7 @@ export const ListPane = React.memo(
             selectedFile,
             selectedProperty,
             selectedTag,
-            selectionType,
-            settings.manualSortNewNotePlacement
+            selectionType
         ]);
 
         const listToolbar = useMemo(() => {

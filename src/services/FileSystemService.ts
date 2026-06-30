@@ -82,6 +82,7 @@ import {
     getLocalizedManualSortWriteFailureMessage,
     normalizeManualSortPropertyKey,
     writeManualSortAssignments,
+    type ManualSortFileLike,
     type ManualSortRankPlan,
     type ManualSortNewFilePlacementContext
 } from '../utils/manualSort';
@@ -145,6 +146,14 @@ interface ElectronModule {
 
 interface WindowWithRequire {
     require(moduleName: string): unknown;
+}
+
+function formatManualSortInitialFrontmatterKey(propertyKey: string): string {
+    return /^[A-Za-z0-9_-]+$/u.test(propertyKey) ? propertyKey : JSON.stringify(propertyKey);
+}
+
+function buildManualSortInitialContent(propertyKey: string, value: number): string {
+    return `---\n${formatManualSortInitialFrontmatterKey(propertyKey)}: ${value}\n---\n`;
 }
 
 /**
@@ -342,6 +351,46 @@ export class FileSystemOperations {
 
         await this.writeManualSortNewFilePlacement(propertyKey, plan);
         return null;
+    }
+
+    private buildManualSortInitialPlacementContent(
+        parent: TFolder,
+        fileName: string,
+        context: ManualSortNewFilePlacementContext | null
+    ): { content: string; shouldSkipPostCreatePlacement: boolean } | null {
+        if (!context) {
+            return null;
+        }
+
+        const propertyKey = normalizeManualSortPropertyKey(context.propertyKey);
+        if (!propertyKey) {
+            return null;
+        }
+
+        const path = buildFilePathInFolder(parent.path, fileName, 'md');
+        const files: readonly ManualSortFileLike[] = context.files;
+        const planningFiles: readonly ManualSortFileLike[] | undefined = context.planningFiles;
+        const plan = buildManualSortInsertionRankPlan({
+            files,
+            planningFiles,
+            planningInsertionIndex: context.planningInsertionIndex,
+            insertedFile: { path, extension: 'md' },
+            placement: context.placement,
+            selectedPath: context.selectedFilePath,
+            rankByPath: context.rankByPath
+        });
+        const inlineAssignment =
+            plan && !plan.requiresCompaction && plan.assignments.length === 1 && plan.assignments[0].path === path
+                ? plan.assignments[0]
+                : null;
+        if (!inlineAssignment) {
+            return null;
+        }
+
+        return {
+            content: buildManualSortInitialContent(propertyKey, inlineAssignment.value),
+            shouldSkipPostCreatePlacement: true
+        };
     }
 
     private resolveConfiguredPropertyDisplayKey(normalizedKey: string): string | null {
@@ -764,11 +813,18 @@ export class FileSystemOperations {
     ): Promise<TFile | null> {
         const resolvedManualSortContext = this.resolveManualSortNewFileContext(manualSortContext, 'folder', parent.path);
         const deferredManualSortPrompt: { run: (() => void) | null } = { run: null };
+        const fileName = generateUniqueFilename(parent.path, strings.fileSystem.defaultNames.untitled, 'md', this.app);
+        const inlineManualSortPlacement = this.buildManualSortInitialPlacementContent(parent, fileName, resolvedManualSortContext);
         const file = await createFileWithOptions(parent, this.app, {
             extension: 'md',
-            content: '',
+            fileName,
+            content: inlineManualSortPlacement?.content ?? '',
             openInNewTab,
             afterCreate: async createdFile => {
+                if (inlineManualSortPlacement?.shouldSkipPostCreatePlacement) {
+                    return;
+                }
+
                 deferredManualSortPrompt.run = await this.applyManualSortNewFilePlacement(createdFile, resolvedManualSortContext, {
                     deferCompactionPrompt: true
                 });

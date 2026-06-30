@@ -30,6 +30,8 @@ import { getTemplaterCreateNoteFromTemplate } from './templaterIntegration';
 export interface CreateFileOptions {
     /** The file extension (without dot) */
     extension: string;
+    /** Optional already-resolved base file name without extension */
+    fileName?: string;
     /** Initial content for the file */
     content?: string;
     /** Whether to open the file after creation */
@@ -130,6 +132,7 @@ export function generateUniqueFilename(
 export async function createFileWithOptions(parent: TFolder, app: App, options: CreateFileOptions): Promise<TFile | null> {
     const {
         extension,
+        fileName,
         content = '',
         openFile = true,
         openInNewTab = false,
@@ -141,13 +144,13 @@ export async function createFileWithOptions(parent: TFolder, app: App, options: 
     try {
         // Generate unique file path
         const baseName = strings.fileSystem.defaultNames.untitled;
-        const fileName = generateUniqueFilename(parent.path, baseName, extension, app);
+        const resolvedFileName = fileName ?? generateUniqueFilename(parent.path, baseName, extension, app);
         let file: TFile;
 
         if (extension === 'md' && content.length === 0) {
-            file = await app.fileManager.createNewMarkdownFile(parent, fileName);
+            file = await app.fileManager.createNewMarkdownFile(parent, resolvedFileName);
         } else {
-            const path = buildFilePathInFolder(parent.path, fileName, extension);
+            const path = buildFilePathInFolder(parent.path, resolvedFileName, extension);
             file = await app.vault.create(path, content);
         }
 
