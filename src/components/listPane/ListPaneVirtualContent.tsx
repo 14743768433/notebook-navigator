@@ -1202,11 +1202,11 @@ export function ListPaneVirtualContent({
             const canAttachSelectionToParent = (targetParentPath: string | null): boolean =>
                 targetParentPath === null ||
                 (Boolean(hierarchyService) &&
-                canAttachNoteTreeSelectionToParent(
-                    dragSelection.rootPaths,
-                    targetParentPath,
-                    (ancestorPath, candidatePath) => hierarchyService?.isDescendant(ancestorPath, candidatePath) ?? false
-                ));
+                    canAttachNoteTreeSelectionToParent(
+                        dragSelection.rootPaths,
+                        targetParentPath,
+                        (ancestorPath, candidatePath) => hierarchyService?.isDescendant(ancestorPath, candidatePath) ?? false
+                    ));
 
             if (childIntent) {
                 const isValid =

@@ -1275,12 +1275,7 @@ export const ListPane = React.memo(
                 if (drop.intent === 'child') {
                     nextScopeFiles = [...targetScopeFiles.filter(file => !movedPaths.has(file.path)), ...movedFiles];
                 } else {
-                    nextScopeFiles = insertManualSortMarkdownFilesAtDropTarget(
-                        targetScopeFiles,
-                        movedFiles,
-                        drop.overPath,
-                        drop.position
-                    );
+                    nextScopeFiles = insertManualSortMarkdownFilesAtDropTarget(targetScopeFiles, movedFiles, drop.overPath, drop.position);
                 }
                 if (!nextScopeFiles) {
                     return false;
@@ -1295,10 +1290,8 @@ export const ListPane = React.memo(
                 if (
                     hierarchyService &&
                     parentUpdatePaths.length > 0 &&
-                    !canAttachNoteTreeSelectionToParent(
-                        movedPaths,
-                        targetParentPath,
-                        (ancestorPath, candidatePath) => hierarchyService.isDescendant(ancestorPath, candidatePath)
+                    !canAttachNoteTreeSelectionToParent(movedPaths, targetParentPath, (ancestorPath, candidatePath) =>
+                        hierarchyService.isDescendant(ancestorPath, candidatePath)
                     )
                 ) {
                     return false;
