@@ -29,7 +29,6 @@ import type { ManualSortNewFilePlacementContext } from '../utils/manualSort';
 interface ListToolbarProps {
     isSearchActive?: boolean;
     onSearchToggle?: () => void;
-    onManualSortStart?: (propertyKey: string) => void;
     getManualSortNewFileContext?: () => ManualSortNewFilePlacementContext | null;
     useFloatingLayout?: boolean;
 }
@@ -37,7 +36,6 @@ interface ListToolbarProps {
 export function ListToolbar({
     isSearchActive,
     onSearchToggle,
-    onManualSortStart,
     getManualSortNewFileContext,
     useFloatingLayout = false
 }: ListToolbarProps) {
@@ -62,7 +60,7 @@ export function ListToolbar({
         hasAppearanceOrSortSelection,
         hasCustomSortOrGroup,
         hasCustomAppearance
-    } = useListActions({ onManualSortStart, getManualSortNewFileContext, trackRevealFileAvailability: showRevealButton });
+    } = useListActions({ getManualSortNewFileContext, trackRevealFileAvailability: showRevealButton });
 
     const showSearchButton = listVisibility.search;
     const showDescendantsButton = listVisibility.descendants;

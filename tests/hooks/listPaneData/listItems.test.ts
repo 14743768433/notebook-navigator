@@ -107,6 +107,34 @@ function getFileItems(items: ReturnType<typeof buildListItems>): { path: string;
     return fileItems;
 }
 
+function getHierarchyFileItems(
+    items: ReturnType<typeof buildListItems>
+): { path: string; isPinned: boolean; depth: number | undefined; hasChildren: boolean; isExpanded: boolean | undefined }[] {
+    const fileItems: {
+        path: string;
+        isPinned: boolean;
+        depth: number | undefined;
+        hasChildren: boolean;
+        isExpanded: boolean | undefined;
+    }[] = [];
+
+    items.forEach(item => {
+        if (item.type !== ListPaneItemType.FILE || !(item.data instanceof TFile)) {
+            return;
+        }
+
+        fileItems.push({
+            path: item.data.path,
+            isPinned: item.isPinned === true,
+            depth: item.depth,
+            hasChildren: item.hasChildren === true,
+            isExpanded: item.isExpanded
+        });
+    });
+
+    return fileItems;
+}
+
 function getHeaderItems(items: ReturnType<typeof buildListItems>): { data: string; kind: string | undefined }[] {
     return items
         .filter(item => item.type === ListPaneItemType.HEADER && typeof item.data === 'string')
@@ -139,6 +167,117 @@ function getFolderHeaderSegmentItems(
             segments: item.headerFolderSegments ?? []
         }));
 }
+
+function buildHierarchyItems({
+    app,
+    files,
+    pinnedNotes = {},
+    hierarchyParentByPath,
+    expandedNoteTreeNodes = new Set<string>()
+}: {
+    app: App;
+    files: TFile[];
+    pinnedNotes?: ListPaneConfig['pinnedNotes'];
+    hierarchyParentByPath: ReadonlyMap<string, string>;
+    expandedNoteTreeNodes?: ReadonlySet<string>;
+}) {
+    const db = createDb(Object.fromEntries(files.map(file => [file.path, { tags: null, properties: null }])));
+    const rankByPath = new Map(files.map((file, index) => [file.path, (index + 1) * 1000]));
+    app.metadataCache.getFileCache = (file: TFile) => ({
+        frontmatter: {
+            index: rankByPath.get(file.path)
+        }
+    });
+    return buildListItems({
+        app,
+        dayKey: '2026-03-07',
+        fileVisibility: FILE_VISIBILITY.DOCUMENTS,
+        files,
+        getDB: () => db,
+        getFileTimestamps: () => ({ created: 0, modified: 0 }),
+        hiddenFileState: new Map(),
+        hiddenTags: [],
+        listConfig: createListConfig(pinnedNotes),
+        searchMetaMap: new Map(),
+        selectedFolder: createFolder('notes'),
+        selectionType: ItemType.FOLDER,
+        showHiddenItems: false,
+        sortOption: 'property-asc',
+        propertySortKey: 'index',
+        isManualSortActive: true,
+        hierarchyParentByPath,
+        expandedNoteTreeNodes
+    });
+}
+
+describe('buildListItems note hierarchy', () => {
+    it('renders current-folder markdown notes as a DFS tree when hierarchy edges exist', () => {
+        const app = createApp();
+        const parent = assignParent(createTestTFile('notes/parent.md'), 'notes');
+        const child = assignParent(createTestTFile('notes/child.md'), 'notes');
+        const grandchild = assignParent(createTestTFile('notes/grandchild.md'), 'notes');
+        const sibling = assignParent(createTestTFile('notes/sibling.md'), 'notes');
+        const hierarchyParentByPath = new Map([
+            [child.path, parent.path],
+            [grandchild.path, child.path]
+        ]);
+
+        const items = buildHierarchyItems({
+            app,
+            files: [parent, sibling, child, grandchild],
+            hierarchyParentByPath,
+            expandedNoteTreeNodes: new Set([`notes\u0001${parent.path}`, `notes\u0001${child.path}`])
+        });
+        const fileItems = getHierarchyFileItems(items);
+
+        expect(fileItems.map(item => item.path)).toEqual([parent.path, child.path, grandchild.path, sibling.path]);
+        expect(fileItems.map(item => item.depth ?? 0)).toEqual([0, 1, 2, 0]);
+        expect(fileItems.map(item => item.hasChildren)).toEqual([true, true, false, false]);
+    });
+
+    it('hides collapsed descendants while keeping the parent row visible', () => {
+        const app = createApp();
+        const parent = assignParent(createTestTFile('notes/parent.md'), 'notes');
+        const child = assignParent(createTestTFile('notes/child.md'), 'notes');
+        const hierarchyParentByPath = new Map([[child.path, parent.path]]);
+
+        const items = buildHierarchyItems({
+            app,
+            files: [parent, child],
+            hierarchyParentByPath,
+            expandedNoteTreeNodes: new Set()
+        });
+        const fileItems = getHierarchyFileItems(items);
+
+        expect(fileItems.map(item => item.path)).toEqual([parent.path]);
+        expect(fileItems[0].isExpanded).toBe(false);
+    });
+
+    it('keeps pinned notes and non-markdown files outside the note tree', () => {
+        const app = createApp();
+        const pinned = assignParent(createTestTFile('notes/pinned.md'), 'notes');
+        const parent = assignParent(createTestTFile('notes/parent.md'), 'notes');
+        const child = assignParent(createTestTFile('notes/child.md'), 'notes');
+        const pdf = assignParent(createTestTFile('notes/reference.pdf'), 'notes');
+        const hierarchyParentByPath = new Map([[child.path, parent.path]]);
+
+        const items = buildHierarchyItems({
+            app,
+            files: [pinned, parent, child, pdf],
+            pinnedNotes: { [pinned.path]: { folder: true } },
+            hierarchyParentByPath,
+            expandedNoteTreeNodes: new Set([`notes\u0001${parent.path}`])
+        });
+        const fileItems = getHierarchyFileItems(items);
+
+        expect(fileItems.map(item => ({ path: item.path, isPinned: item.isPinned, depth: item.depth }))).toEqual([
+            { path: pinned.path, isPinned: true, depth: undefined },
+            { path: parent.path, isPinned: false, depth: 0 },
+            { path: child.path, isPinned: false, depth: 1 },
+            { path: pdf.path, isPinned: false, depth: undefined }
+        ]);
+    });
+});
 
 describe('buildListItems pinned display scope', () => {
     it('adds spacer rows before subsequent fixed-height group headers', () => {

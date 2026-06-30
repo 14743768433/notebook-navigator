@@ -182,6 +182,7 @@ export default function registerWorkspaceEvents(plugin: NotebookNavigatorPlugin)
                 // Update recent notes history with new path
                 plugin.recentNotesService?.renameEntry(oldPath, file.path);
                 await plugin.metadataService?.handleFileRename(oldPath, file.path);
+                plugin.hierarchyService?.applyRename(oldPath, file.path);
 
                 // Helper to extract parent folder path from file path
                 const getParentPath = (path: string): string => {
@@ -265,6 +266,7 @@ export default function registerWorkspaceEvents(plugin: NotebookNavigatorPlugin)
                 if (plugin.metadataService) {
                     await plugin.metadataService.handleFileDelete(file.path);
                 }
+                plugin.hierarchyService?.applyDelete(file.path);
 
                 if (isVaultIconFile(file)) {
                     updateVaultIconListCacheForDelete(file.path);

@@ -50,6 +50,14 @@ interface FileDeletionServiceOptions {
     folderPathSettingsSync: FolderPathSettingsSync;
 }
 
+function focusListPaneScroller(): void {
+    const fileListEl = activeDocument.querySelector('.nn-list-pane-scroller');
+    const HTMLElementCtor = activeDocument.defaultView?.HTMLElement;
+    if (HTMLElementCtor && fileListEl instanceof HTMLElementCtor) {
+        fileListEl.focus();
+    }
+}
+
 export interface FileTrashResult {
     trashedCount: number;
     failedCount: number;
@@ -217,10 +225,7 @@ export class FileDeletionService {
             }
 
             window.setTimeout(() => {
-                const fileListEl = activeDocument.querySelector('.nn-list-pane-scroller');
-                if (fileListEl instanceof HTMLElement) {
-                    fileListEl.focus();
-                }
+                focusListPaneScroller();
             }, TIMEOUTS.FILE_OPERATION_DELAY);
         });
     }
@@ -372,10 +377,7 @@ export class FileDeletionService {
             }
 
             window.setTimeout(() => {
-                const fileListEl = activeDocument.querySelector('.nn-list-pane-scroller');
-                if (fileListEl instanceof HTMLElement) {
-                    fileListEl.focus();
-                }
+                focusListPaneScroller();
             }, TIMEOUTS.FILE_OPERATION_DELAY);
         });
     }

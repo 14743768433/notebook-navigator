@@ -28,6 +28,7 @@ interface ExpansionState {
     expandedProperties: Set<string>;
     expandedVirtualFolders: Set<string>;
     collapsedListGroups: Set<string>;
+    expandedNoteTreeNodes: Set<string>;
 }
 
 // Action types
@@ -41,7 +42,9 @@ export type ExpansionAction =
     | { type: 'TOGGLE_PROPERTY_EXPANDED'; propertyNodeId: string }
     | { type: 'TOGGLE_VIRTUAL_FOLDER_EXPANDED'; folderId: string }
     | { type: 'TOGGLE_LIST_GROUP_COLLAPSED'; collapseKey: string }
+    | { type: 'TOGGLE_NOTE_TREE_NODE_EXPANDED'; nodeKey: string }
     | { type: 'EXPAND_LIST_GROUP'; collapseKey: string }
+    | { type: 'EXPAND_NOTE_TREE_NODE'; nodeKey: string }
     | { type: 'EXPAND_FOLDERS'; folderPaths: string[] }
     | { type: 'EXPAND_TAGS'; tagPaths: string[] }
     | { type: 'EXPAND_PROPERTIES'; propertyNodeIds: string[] }
@@ -143,6 +146,16 @@ function expansionReducer(state: ExpansionState, action: ExpansionAction): Expan
             return { ...state, collapsedListGroups: newCollapsed };
         }
 
+        case 'TOGGLE_NOTE_TREE_NODE_EXPANDED': {
+            const newExpanded = new Set(state.expandedNoteTreeNodes);
+            if (newExpanded.has(action.nodeKey)) {
+                newExpanded.delete(action.nodeKey);
+            } else {
+                newExpanded.add(action.nodeKey);
+            }
+            return { ...state, expandedNoteTreeNodes: newExpanded };
+        }
+
         case 'EXPAND_LIST_GROUP': {
             if (!state.collapsedListGroups.has(action.collapseKey)) {
                 return state;
@@ -151,6 +164,16 @@ function expansionReducer(state: ExpansionState, action: ExpansionAction): Expan
             const newCollapsed = new Set(state.collapsedListGroups);
             newCollapsed.delete(action.collapseKey);
             return { ...state, collapsedListGroups: newCollapsed };
+        }
+
+        case 'EXPAND_NOTE_TREE_NODE': {
+            if (state.expandedNoteTreeNodes.has(action.nodeKey)) {
+                return state;
+            }
+
+            const newExpanded = new Set(state.expandedNoteTreeNodes);
+            newExpanded.add(action.nodeKey);
+            return { ...state, expandedNoteTreeNodes: newExpanded };
         }
 
         case 'EXPAND_FOLDERS': {
@@ -249,6 +272,7 @@ export function ExpansionProvider({ children }: ExpansionProviderProps) {
         const savedExpandedProperties = localStorage.get<string[]>(STORAGE_KEYS.expandedPropertiesKey);
         const savedExpandedVirtualFolders = localStorage.get<string[]>(STORAGE_KEYS.expandedVirtualFoldersKey);
         const savedCollapsedListGroups = localStorage.get<unknown>(STORAGE_KEYS.collapsedListGroupsKey);
+        const savedExpandedNoteTreeNodes = localStorage.get<string[]>(STORAGE_KEYS.expandedNoteTreeNodesKey);
 
         const expandedFolders = new Set<string>(savedExpandedFolders || []);
         const expandedTags = new Set<string>(savedExpandedTags || []);
@@ -257,8 +281,16 @@ export function ExpansionProvider({ children }: ExpansionProviderProps) {
             savedExpandedVirtualFolders || [TAGS_ROOT_VIRTUAL_FOLDER_ID, PROPERTIES_ROOT_VIRTUAL_FOLDER_ID]
         ); // Default expand tag/property roots
         const collapsedListGroups = new Set<string>(normalizeStoredCollapsedListGroupKeys(savedCollapsedListGroups));
+        const expandedNoteTreeNodes = new Set<string>(savedExpandedNoteTreeNodes || []);
 
-        return { expandedFolders, expandedTags, expandedProperties, expandedVirtualFolders, collapsedListGroups };
+        return {
+            expandedFolders,
+            expandedTags,
+            expandedProperties,
+            expandedVirtualFolders,
+            collapsedListGroups,
+            expandedNoteTreeNodes
+        };
     };
 
     const [state, dispatch] = useReducer(expansionReducer, undefined, loadInitialState);
@@ -283,6 +315,10 @@ export function ExpansionProvider({ children }: ExpansionProviderProps) {
     useEffect(() => {
         localStorage.set(STORAGE_KEYS.collapsedListGroupsKey, Array.from(state.collapsedListGroups));
     }, [state.collapsedListGroups]);
+
+    useEffect(() => {
+        localStorage.set(STORAGE_KEYS.expandedNoteTreeNodesKey, Array.from(state.expandedNoteTreeNodes));
+    }, [state.expandedNoteTreeNodes]);
 
     return (
         <ExpansionContext.Provider value={state}>

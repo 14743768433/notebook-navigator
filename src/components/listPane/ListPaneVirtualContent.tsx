@@ -16,9 +16,24 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import React, { useCallback, useMemo } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { App, Menu, TFile, TFolder } from 'obsidian';
 import { Virtualizer } from '@tanstack/react-virtual';
+import {
+    DndContext,
+    DragOverlay,
+    MouseSensor,
+    TouchSensor,
+    pointerWithin,
+    useDraggable,
+    useDroppable,
+    useSensor,
+    useSensors,
+    type DragMoveEvent,
+    type DragOverEvent,
+    type DragStartEvent,
+    type Modifier
+} from '@dnd-kit/core';
 import { useFileSystemOps, useMetadataService, useServices } from '../../context/ServicesContext';
 import { strings } from '../../i18n';
 import { ItemType, ListPaneItemType, PINNED_SECTION_HEADER_KEY, type NavigationItemType } from '../../types';
@@ -46,6 +61,27 @@ import { addManualSortGroupHeaderMenuItems } from '../../utils/contextMenu/manua
 import { addMergeNotesMenuItem } from '../../utils/contextMenu/mergeNotesMenuItems';
 import { getMarkdownFilesInOrder } from '../../utils/noteMerge';
 import { ManualSortGroupHeaderContent, ManualSortGroupHeaderProgress } from './ManualSortGroupHeaderContent';
+
+const NOTE_TREE_INDENT_PX = 28;
+const NOTE_TREE_CHILD_INTENT_THRESHOLD_PX = 28;
+
+export interface ListPaneDragSortDrop {
+    activePath: string;
+    overPath: string;
+    position: 'before' | 'after';
+    intent: 'reorder' | 'child';
+    parentPath: string | null;
+    depth: number;
+}
+
+interface DragSortState extends ListPaneDragSortDrop {
+    isValid: boolean;
+}
+
+interface DropAnchor {
+    path: string;
+    position: 'before' | 'after';
+}
 
 export interface PointerClientPosition {
     clientX: number;
@@ -152,6 +188,10 @@ interface ListPaneVirtualContentProps {
     fileItemPillDecorationModel: FileItemPillDecorationModel;
     fileItemPillOrderModel: FileItemPillOrderModel;
     getSolidBackground: (color?: string | null) => string | undefined;
+    enableDragSort?: boolean;
+    selectedFilePaths?: ReadonlySet<string>;
+    onDragSort?: (drop: ListPaneDragSortDrop) => boolean;
+    onNoteTreeToggle?: (nodeKey: string) => void;
 }
 
 function getItemAt<T>(items: T[], index: number): T | undefined {
@@ -246,6 +286,148 @@ function shouldHideManualSortGoalHeaderSeparator(header: HeaderRenderModel | nul
     return header?.manualSortHeader
         ? shouldShowManualSortGroupHeaderProgress(header.manualSortHeader, header.manualSortHeaderTargetWordCount)
         : false;
+}
+
+function getActivatorPoint(event: Event): { x: number; y: number } | null {
+    if ('clientX' in event && 'clientY' in event) {
+        const pointerEvent = event as MouseEvent;
+        return { x: pointerEvent.clientX, y: pointerEvent.clientY };
+    }
+
+    const touchEvent = event as TouchEvent;
+    const touch = touchEvent.touches?.[0] ?? touchEvent.changedTouches?.[0];
+    return touch ? { x: touch.clientX, y: touch.clientY } : null;
+}
+
+const snapDragOverlayCenterToPointer: Modifier = ({ activatorEvent, activeNodeRect, overlayNodeRect, transform }) => {
+    const activatorPoint = activatorEvent ? getActivatorPoint(activatorEvent) : null;
+    const overlayBaseRect = overlayNodeRect ?? activeNodeRect;
+    if (!activatorPoint || !overlayBaseRect) {
+        return transform;
+    }
+
+    const pointerNow = {
+        x: activatorPoint.x + transform.x,
+        y: activatorPoint.y + transform.y
+    };
+    return {
+        ...transform,
+        x: pointerNow.x - overlayBaseRect.width / 2 - overlayBaseRect.left,
+        y: pointerNow.y - overlayBaseRect.height / 2 - overlayBaseRect.top
+    };
+};
+
+function getRowElement(doc: Document, path: string): HTMLElement | null {
+    const rows = doc.querySelectorAll<HTMLElement>('[data-dnd-file-path]');
+    for (const row of rows) {
+        if (row.dataset.dndFilePath === path) {
+            return row;
+        }
+    }
+    return null;
+}
+
+function getCurrentPoint(startPoint: { x: number; y: number } | null, delta: { x: number; y: number }): { x: number; y: number } | null {
+    return startPoint ? { x: startPoint.x + delta.x, y: startPoint.y + delta.y } : null;
+}
+
+interface DraggableVirtualRowProps {
+    file: TFile | null;
+    canDrag: boolean;
+    className: string;
+    style: VirtualRowStyle;
+    index: number;
+    depth: number;
+    hasChildren: boolean;
+    isExpanded: boolean;
+    treeNodeKey: string | null;
+    dropState: DragSortState | null;
+    onNoteTreeToggle?: (nodeKey: string) => void;
+    children: React.ReactNode;
+}
+
+function DraggableVirtualRow({
+    file,
+    canDrag,
+    className,
+    style,
+    index,
+    depth,
+    hasChildren,
+    isExpanded,
+    treeNodeKey,
+    dropState,
+    onNoteTreeToggle,
+    children
+}: DraggableVirtualRowProps) {
+    const rowId = file?.path ?? `row-${style.top}`;
+    const { attributes, listeners, setNodeRef: setDraggableNodeRef, isDragging } = useDraggable({
+        id: rowId,
+        data: { type: 'list-file', path: file?.path ?? '' },
+        disabled: !canDrag
+    });
+    const { setNodeRef: setDroppableNodeRef } = useDroppable({
+        id: rowId,
+        data: { type: 'list-file', path: file?.path ?? '' },
+        disabled: !canDrag
+    });
+    const setNodeRef = useCallback(
+        (node: HTMLDivElement | null) => {
+            setDraggableNodeRef(node);
+            setDroppableNodeRef(node);
+        },
+        [setDraggableNodeRef, setDroppableNodeRef]
+    );
+    const rowClasses = [className];
+    if (isDragging) {
+        rowClasses.push('nn-list-drag-source');
+    }
+    if (file && dropState?.intent === 'child' && dropState.parentPath === file.path && dropState.isValid) {
+        rowClasses.push('nn-list-drag-parent-target');
+    }
+    const showDropIndicator = file && dropState?.intent === 'reorder' && dropState.overPath === file.path && dropState.isValid;
+    const rowStyle = {
+        ...style,
+        '--nn-note-tree-depth': depth.toString()
+    } as VirtualRowStyle & Record<'--nn-note-tree-depth', string>;
+    const indicatorStyle = showDropIndicator ? ({ '--nn-drop-depth': dropState.depth.toString() } as React.CSSProperties) : undefined;
+    const handleToggleClick = useCallback(
+        (event: React.MouseEvent<HTMLButtonElement>) => {
+            event.preventDefault();
+            event.stopPropagation();
+            if (treeNodeKey) {
+                onNoteTreeToggle?.(treeNodeKey);
+            }
+        },
+        [onNoteTreeToggle, treeNodeKey]
+    );
+
+    return (
+        <div
+            ref={setNodeRef}
+            className={rowClasses.join(' ')}
+            style={rowStyle}
+            data-index={index}
+            data-dnd-file-path={file?.path}
+            {...(canDrag ? attributes : {})}
+            {...(canDrag ? listeners : {})}
+        >
+            {showDropIndicator ? <div className={`nn-list-drop-indicator nn-list-drop-indicator-${dropState.position}`} style={indicatorStyle} /> : null}
+            {file && hasChildren ? (
+                <button
+                    type="button"
+                    className="nn-note-tree-toggle"
+                    aria-label={isExpanded ? strings.listPane.collapseGroup : strings.listPane.expandGroup}
+                    onClick={handleToggleClick}
+                    onPointerDown={event => event.stopPropagation()}
+                    tabIndex={-1}
+                >
+                    <ServiceIcon iconId={isExpanded ? 'lucide-chevron-down' : 'lucide-chevron-right'} />
+                </button>
+            ) : null}
+            {children}
+        </div>
+    );
 }
 
 function ListPaneGroupHeader({
@@ -477,9 +659,13 @@ export function ListPaneVirtualContent({
     folderDecorationModel,
     fileItemPillDecorationModel,
     fileItemPillOrderModel,
-    getSolidBackground
+    getSolidBackground,
+    enableDragSort = false,
+    selectedFilePaths = new Set<string>(),
+    onDragSort,
+    onNoteTreeToggle
 }: ListPaneVirtualContentProps) {
-    const { app, commandQueue, isMobile, plugin } = useServices();
+    const { app, commandQueue, hierarchyService, isMobile, plugin } = useServices();
     const fileSystemOps = useFileSystemOps();
     const metadataService = useMetadataService();
     const collapseChevronIcons = useMemo(
@@ -823,6 +1009,251 @@ export function ListPaneVirtualContent({
     );
 
     const virtualItems = rowVirtualizer.getVirtualItems();
+    const sensors = useSensors(
+        useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
+        useSensor(TouchSensor, { activationConstraint: { distance: 6 } })
+    );
+    const dragStartPointRef = useRef<{ x: number; y: number } | null>(null);
+    const [activeDragPath, setActiveDragPath] = useState<string | null>(null);
+    const [dropState, setDropState] = useState<DragSortState | null>(null);
+    const fileItemInfoByPath = useMemo(() => {
+        const info = new Map<
+            string,
+            {
+                item: ListPaneItem;
+                index: number;
+                depth: number;
+                parentPath: string | null;
+            }
+        >();
+        listItems.forEach((item, index) => {
+            if (item.type === ListPaneItemType.FILE && item.data instanceof TFile) {
+                info.set(item.data.path, {
+                    item,
+                    index,
+                    depth: item.depth ?? 0,
+                    parentPath: item.hierarchyParentPath ?? null
+                });
+            }
+        });
+        return info;
+    }, [listItems]);
+    const getDropMaxDepth = useCallback(
+        (insertionIndex: number, activePath: string): number => {
+            for (let index = insertionIndex - 1; index >= 0; index -= 1) {
+                const candidate = listItems[index];
+                if (
+                    candidate?.type === ListPaneItemType.FILE &&
+                    candidate.data instanceof TFile &&
+                    candidate.data.path !== activePath
+                ) {
+                    return (candidate.depth ?? 0) + 1;
+                }
+            }
+            return 0;
+        },
+        [listItems]
+    );
+    const resolveParentForDropDepth = useCallback(
+        (insertionIndex: number, depth: number, activePath: string): string | null => {
+            if (depth <= 0) {
+                return null;
+            }
+
+            for (let index = insertionIndex - 1; index >= 0; index -= 1) {
+                const candidate = listItems[index];
+                if (
+                    candidate?.type === ListPaneItemType.FILE &&
+                    candidate.data instanceof TFile &&
+                    candidate.data.path !== activePath &&
+                    (candidate.depth ?? 0) === depth - 1
+                ) {
+                    return candidate.data.path;
+                }
+            }
+            return null;
+        },
+        [listItems]
+    );
+    const resolveSiblingDropAnchor = useCallback(
+        (
+            insertionIndex: number,
+            parentPath: string | null,
+            activePath: string,
+            preferredPosition: 'before' | 'after'
+        ): DropAnchor | null => {
+            const isTargetSibling = (item: ListPaneItem | undefined): item is ListPaneItem & { type: typeof ListPaneItemType.FILE; data: TFile } => {
+                return (
+                    item?.type === ListPaneItemType.FILE &&
+                    item.data instanceof TFile &&
+                    item.data.path !== activePath &&
+                    item.data.extension === 'md' &&
+                    !item.isPinned &&
+                    (item.hierarchyParentPath ?? null) === parentPath
+                );
+            };
+
+            const findPrevious = (): DropAnchor | null => {
+                for (let index = insertionIndex - 1; index >= 0; index -= 1) {
+                    const candidate = listItems[index];
+                    if (isTargetSibling(candidate)) {
+                        return { path: candidate.data.path, position: 'after' };
+                    }
+                }
+                return null;
+            };
+
+            const findNext = (): DropAnchor | null => {
+                for (let index = insertionIndex; index < listItems.length; index += 1) {
+                    const candidate = listItems[index];
+                    if (isTargetSibling(candidate)) {
+                        return { path: candidate.data.path, position: 'before' };
+                    }
+                }
+                return null;
+            };
+
+            return preferredPosition === 'before' ? (findNext() ?? findPrevious()) : (findPrevious() ?? findNext());
+        },
+        [listItems]
+    );
+    const buildDropState = useCallback(
+        (
+            activePath: string,
+            overPath: string,
+            point: { x: number; y: number } | null,
+            delta: { x: number; y: number }
+        ): DragSortState | null => {
+            const overInfo = fileItemInfoByPath.get(overPath);
+            const activeInfo = fileItemInfoByPath.get(activePath);
+            const rowElement = getRowElement(activeDocument, overPath);
+            if (!overInfo || !activeInfo || !rowElement || !point) {
+                return null;
+            }
+
+            const rect = rowElement.getBoundingClientRect();
+            const position = point.y < rect.top + rect.height / 2 ? 'before' : 'after';
+            const overDepth = overInfo.depth;
+            const insertionIndex = position === 'after' ? overInfo.index + 1 : overInfo.index;
+            const maxDepth = getDropMaxDepth(insertionIndex, activePath);
+            const projectedDepth = activeInfo.depth + Math.round(delta.x / NOTE_TREE_INDENT_PX);
+            const requestedDepth = Math.max(0, Math.min(maxDepth, projectedDepth));
+            const childIntent = delta.x >= NOTE_TREE_CHILD_INTENT_THRESHOLD_PX;
+            const selectedMarkdownCount = Array.from(selectedFilePaths).filter(path => fileItemInfoByPath.get(path)?.item.data instanceof TFile).length;
+
+            if (childIntent) {
+                const isValid =
+                    activePath !== overPath &&
+                    selectedMarkdownCount <= 1 &&
+                    overInfo.item.data instanceof TFile &&
+                    !overInfo.item.isPinned &&
+                    !activeInfo.item.isPinned &&
+                    overInfo.item.data.extension === 'md' &&
+                    activeInfo.item.data instanceof TFile &&
+                    activeInfo.item.data.extension === 'md' &&
+                    !(hierarchyService?.isDescendant(activePath, overPath) ?? false);
+                return {
+                    activePath,
+                    overPath,
+                    position: 'after',
+                    intent: 'child',
+                    parentPath: overPath,
+                    depth: overDepth + 1,
+                    isValid
+                };
+            }
+
+            const parentPath = resolveParentForDropDepth(insertionIndex, requestedDepth, activePath);
+            const dropAnchor = resolveSiblingDropAnchor(insertionIndex, parentPath, activePath, position);
+            if (!dropAnchor) {
+                return null;
+            }
+            const dropAnchorInfo = fileItemInfoByPath.get(dropAnchor.path);
+            const isValid =
+                activePath !== dropAnchor.path &&
+                Boolean(dropAnchorInfo) &&
+                !dropAnchorInfo?.item.isPinned &&
+                !activeInfo.item.isPinned &&
+                dropAnchorInfo?.item.data instanceof TFile &&
+                dropAnchorInfo.item.data.extension === 'md' &&
+                activeInfo.item.data instanceof TFile &&
+                activeInfo.item.data.extension === 'md' &&
+                (parentPath === null || !(hierarchyService?.isDescendant(activePath, parentPath) ?? false));
+            return {
+                activePath,
+                overPath: dropAnchor.path,
+                position: dropAnchor.position,
+                intent: 'reorder',
+                parentPath,
+                depth: requestedDepth,
+                isValid
+            };
+        },
+        [
+            fileItemInfoByPath,
+            getDropMaxDepth,
+            hierarchyService,
+            resolveParentForDropDepth,
+            resolveSiblingDropAnchor,
+            selectedFilePaths
+        ]
+    );
+    const updateDropStateFromEvent = useCallback(
+        (event: DragMoveEvent | DragOverEvent) => {
+            const activePath = String(event.active.id);
+            const overPath = event.over?.id ? String(event.over.id) : '';
+            if (!activePath || !overPath) {
+                setDropState(null);
+                return;
+            }
+            const point = getCurrentPoint(dragStartPointRef.current, event.delta);
+            setDropState(buildDropState(activePath, overPath, point, event.delta));
+        },
+        [buildDropState]
+    );
+    const handleDragStart = useCallback((event: DragStartEvent) => {
+        const activePath = String(event.active.id);
+        setActiveDragPath(activePath);
+        dragStartPointRef.current = getActivatorPoint(event.activatorEvent);
+    }, []);
+    const handleDragMove = useCallback(
+        (event: DragMoveEvent) => {
+            updateDropStateFromEvent(event);
+        },
+        [updateDropStateFromEvent]
+    );
+    const handleDragOver = useCallback(
+        (event: DragOverEvent) => {
+            updateDropStateFromEvent(event);
+        },
+        [updateDropStateFromEvent]
+    );
+    const handleDragEnd = useCallback(
+        () => {
+            const finalDropState = dropState ?? null;
+            setActiveDragPath(null);
+            setDropState(null);
+            dragStartPointRef.current = null;
+            if (!finalDropState?.isValid) {
+                return;
+            }
+            onDragSort?.({
+                activePath: finalDropState.activePath,
+                overPath: finalDropState.overPath,
+                position: finalDropState.position,
+                intent: finalDropState.intent,
+                parentPath: finalDropState.parentPath,
+                depth: finalDropState.depth
+            });
+        },
+        [dropState, onDragSort]
+    );
+    const handleDragCancel = useCallback(() => {
+        setActiveDragPath(null);
+        setDropState(null);
+        dragStartPointRef.current = null;
+    }, []);
+    const activeDragFile = activeDragPath ? (fileItemInfoByPath.get(activeDragPath)?.item.data ?? null) : null;
     const scrollOffset = rowVirtualizer.scrollOffset ?? 0;
     const stickyGroupHeaders = settings.stickyGroupHeaders;
     const stickyOffset =
@@ -832,7 +1263,16 @@ export function ListPaneVirtualContent({
     const stickyHeader = stickyGroupHeaders ? findActiveHeaderModel(headerModels, firstVisibleItem?.index ?? null) : null;
 
     return (
-        <div
+        <DndContext
+            sensors={sensors}
+            collisionDetection={pointerWithin}
+            onDragStart={handleDragStart}
+            onDragMove={handleDragMove}
+            onDragOver={handleDragOver}
+            onDragEnd={handleDragEnd}
+            onDragCancel={handleDragCancel}
+        >
+            <div
             ref={scrollContainerRefCallback}
             className={`nn-list-pane-scroller ${!isEmptySelection && !hasNoFiles && isCompactMode ? 'nn-compact-mode' : ''}`}
             data-drop-zone={activeFolderDropPath ? 'folder' : undefined}
@@ -939,6 +1379,13 @@ export function ListPaneVirtualContent({
                             const virtualItemClasses = ['nn-virtual-item'];
                             if (item.type === ListPaneItemType.FILE) {
                                 virtualItemClasses.push('nn-virtual-file-item');
+                                if (
+                                    item.depth !== undefined ||
+                                    item.hasChildren !== undefined ||
+                                    item.hierarchyParentPath !== undefined
+                                ) {
+                                    virtualItemClasses.push('nn-note-tree-row');
+                                }
                             }
                             if (headerModel) {
                                 virtualItemClasses.push('nn-virtual-list-group-header');
@@ -970,13 +1417,26 @@ export function ListPaneVirtualContent({
                             if (hasNextCustomBackground) {
                                 virtualItemClasses.push('nn-virtual-file-item-has-custom-background-next');
                             }
+                            const rowFile = item.type === ListPaneItemType.FILE && item.data instanceof TFile ? item.data : null;
+                            const canDragRow = Boolean(
+                                enableDragSort && rowFile && rowFile.extension === 'md' && !item.isPinned && !isInlineRenaming
+                            );
+                            const noteTreeNodeKey = rowFile ? `${selectedFolderPath ?? ''}\u0001${rowFile.path}` : null;
 
                             return (
-                                <div
+                                <DraggableVirtualRow
                                     key={virtualItem.key}
+                                    file={rowFile}
+                                    canDrag={canDragRow}
                                     className={virtualItemClasses.join(' ')}
                                     style={virtualItemStyle}
-                                    data-index={virtualItem.index}
+                                    index={virtualItem.index}
+                                    depth={item.type === ListPaneItemType.FILE ? (item.depth ?? 0) : 0}
+                                    hasChildren={item.type === ListPaneItemType.FILE && item.hasChildren === true}
+                                    isExpanded={item.type === ListPaneItemType.FILE && item.isExpanded === true}
+                                    treeNodeKey={noteTreeNodeKey}
+                                    dropState={dropState}
+                                    onNoteTreeToggle={onNoteTreeToggle}
                                 >
                                     {headerModel ? (
                                         <ListPaneGroupHeader
@@ -1032,6 +1492,8 @@ export function ListPaneVirtualContent({
                                             fileItemPillDecorationModel={fileItemPillDecorationModel}
                                             fileItemPillOrderModel={fileItemPillOrderModel}
                                             getSolidBackground={getSolidBackground}
+                                            disableNativeDrag={enableDragSort}
+                                            manualSortDisabled={enableDragSort && item.data.extension !== 'md'}
                                             inlineRename={
                                                 isInlineRenaming
                                                     ? {
@@ -1043,12 +1505,21 @@ export function ListPaneVirtualContent({
                                             }
                                         />
                                     ) : null}
-                                </div>
+                                </DraggableVirtualRow>
                             );
                         })}
                     </div>
                 ) : null}
             </div>
-        </div>
+            </div>
+            <DragOverlay adjustScale={false} dropAnimation={null} modifiers={[snapDragOverlayCenterToPointer]}>
+                {activeDragFile instanceof TFile ? (
+                    <div className="nn-list-drag-overlay">
+                        <ServiceIcon iconId="lucide-file-text" />
+                        <span>{activeDragFile.basename}</span>
+                    </div>
+                ) : null}
+            </DragOverlay>
+        </DndContext>
     );
 }

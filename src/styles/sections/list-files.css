@@ -176,14 +176,11 @@
 
 /* Virtual list file separator */
 
-.nn-virtual-file-item:not(.nn-last-file)::after {
+.nn-virtual-file-item:not(.nn-last-file) > .nn-file::after {
     content: '';
     position: absolute;
     bottom: 0;
-    inset-inline-start: calc(
-        var(--nn-file-item-padding-horizontal) + var(--nn-file-icon-slot-width-mobile, var(--nn-file-icon-slot-width)) +
-            var(--nn-file-icon-slot-gap)
-    );
+    inset-inline-start: var(--nn-file-item-padding-horizontal);
     inset-inline-end: var(--nn-file-item-padding-horizontal);
     height: var(--nn-separator-height);
     background-color: var(--nn-theme-list-separator-color);
@@ -191,19 +188,152 @@
     pointer-events: none; /* Ensure it doesn't interfere with clicks */
 }
 
+.nn-virtual-file-item:not(.nn-last-file) > .nn-file.nn-file-has-visible-icon::after {
+    inset-inline-start: calc(
+        var(--nn-file-item-padding-horizontal) + var(--nn-file-icon-slot-width-mobile, var(--nn-file-icon-slot-width)) +
+            var(--nn-file-icon-slot-gap)
+    );
+}
+
 /* Hide separator when flagged by renderer (selection) or context menu */
-.nn-virtual-file-item.nn-hide-separator-selection::after,
-.nn-virtual-file-item.nn-hide-separator-context-menu::after,
-.nn-virtual-file-item.nn-virtual-file-item-has-filled-background::after,
-.nn-virtual-file-item.nn-virtual-file-item-has-filled-background-next::after,
-.nn-virtual-file-item.nn-virtual-file-item-has-custom-background::after,
-.nn-virtual-file-item.nn-virtual-file-item-has-custom-background-next::after {
+.nn-virtual-file-item.nn-hide-separator-selection > .nn-file::after,
+.nn-virtual-file-item.nn-hide-separator-context-menu > .nn-file::after,
+.nn-virtual-file-item.nn-virtual-file-item-has-filled-background > .nn-file::after,
+.nn-virtual-file-item.nn-virtual-file-item-has-filled-background-next > .nn-file::after,
+.nn-virtual-file-item.nn-virtual-file-item-has-custom-background > .nn-file::after,
+.nn-virtual-file-item.nn-virtual-file-item-has-custom-background-next > .nn-file::after {
     display: none;
 }
 
 /* Hide separators in compact mode */
-.nn-compact-mode .nn-virtual-file-item::after {
+.nn-compact-mode .nn-virtual-file-item > .nn-file::after {
     display: none;
+}
+
+.nn-note-tree-row {
+    --nn-note-tree-depth: 0;
+    --nn-note-tree-indent: 28px;
+    --nn-note-tree-toggle-width: 20px;
+}
+
+.nn-note-tree-row > .nn-file {
+    margin-inline-start: calc(var(--nn-note-tree-toggle-width) + var(--nn-note-tree-depth) * var(--nn-note-tree-indent));
+    width: calc(100% - var(--nn-note-tree-toggle-width) - var(--nn-note-tree-depth) * var(--nn-note-tree-indent));
+}
+
+button.nn-note-tree-toggle {
+    position: absolute;
+    z-index: 3;
+    top: 50%;
+    inset-inline-start: calc(var(--nn-note-tree-depth) * var(--nn-note-tree-indent));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: var(--nn-note-tree-toggle-width);
+    min-width: 0;
+    height: 20px;
+    min-height: 0;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 3px;
+    color: var(--nn-theme-muted);
+    background: transparent;
+    box-shadow: none;
+    opacity: 0.58;
+    transform: translateY(-50%);
+    cursor: pointer;
+    appearance: none;
+}
+
+button.nn-note-tree-toggle:hover {
+    color: var(--nn-theme-foreground);
+    background: color-mix(in srgb, var(--background-modifier-hover) 72%, transparent);
+    opacity: 0.88;
+}
+
+button.nn-note-tree-toggle:focus-visible {
+    color: var(--nn-theme-foreground);
+    background: var(--background-modifier-hover);
+    box-shadow: 0 0 0 1px var(--background-modifier-border-focus);
+    opacity: 1;
+}
+
+button.nn-note-tree-toggle:active {
+    background: transparent;
+    opacity: 1;
+}
+
+.nn-note-tree-toggle .nn-icon,
+.nn-note-tree-toggle svg {
+    width: 14px;
+    height: 14px;
+}
+
+.nn-list-drag-source {
+    opacity: 0.6;
+}
+
+.nn-list-drag-parent-target > .nn-file {
+    box-shadow: inset 2px 0 0 var(--interactive-accent);
+    background: var(--background-modifier-hover);
+}
+
+.nn-list-drop-indicator {
+    position: absolute;
+    z-index: 8;
+    inset-inline-start: calc(
+        var(--nn-file-item-padding-horizontal) + var(--nn-drop-depth, 0) * var(--nn-note-tree-indent, 28px)
+    );
+    inset-inline-end: var(--nn-file-item-padding-horizontal);
+    height: 1px;
+    border-radius: 1px;
+    background: var(--interactive-accent);
+    opacity: 0.72;
+    pointer-events: none;
+}
+
+.nn-list-drop-indicator-before {
+    top: 0;
+}
+
+.nn-list-drop-indicator-after {
+    bottom: 0;
+}
+
+.nn-list-drop-indicator::before {
+    content: '';
+    position: absolute;
+    inset-inline-start: -3px;
+    top: -2px;
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--interactive-accent);
+    opacity: 0.9;
+}
+
+.nn-list-drag-overlay {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    max-width: 260px;
+    min-height: 28px;
+    padding: 0 9px;
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 5px;
+    background: var(--background-primary);
+    color: var(--text-normal);
+    box-shadow: 0 4px 14px rgb(0 0 0 / 14%);
+    font-size: var(--nn-file-name-size-mobile, var(--nn-file-name-size));
+    pointer-events: none;
+}
+
+.nn-list-drag-overlay span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 /* File text content - left side container for name and preview */

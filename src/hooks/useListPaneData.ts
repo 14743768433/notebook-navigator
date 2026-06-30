@@ -28,7 +28,7 @@
  * - Creating efficient lookup maps for file access
  */
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { TFile, TFolder } from 'obsidian';
 import { useServices } from '../context/ServicesContext';
 import { useFileCache } from '../context/StorageContext';
@@ -82,6 +82,8 @@ interface UseListPaneDataParams {
     pinnedGroupExpanded: boolean;
     /** Collapsed list group keys for the current vault */
     collapsedListGroups: ReadonlySet<string>;
+    /** Expanded note tree node keys for hierarchy display */
+    expandedNoteTreeNodes: ReadonlySet<string>;
     /** Active search provider to use for filtering */
     searchProvider: SearchProvider;
     /** Optional search query to filter files */
@@ -135,18 +137,32 @@ export function useListPaneData({
     groupBy,
     pinnedGroupExpanded,
     collapsedListGroups,
+    expandedNoteTreeNodes,
     searchProvider,
     searchQuery,
     searchTokens,
     visibility,
     propertySortOrderOverride
 }: UseListPaneDataParams): UseListPaneDataResult {
-    const { app, tagTreeService, propertyTreeService, commandQueue, omnisearchService } = useServices();
+    const { app, tagTreeService, propertyTreeService, commandQueue, hierarchyService, omnisearchService } = useServices();
     const { getFileTimestamps, getDB, getFileDisplayName } = useFileCache();
     const { includeDescendantNotes, showHiddenItems } = visibility;
     const dayKey = useLocalDayKey();
 
     const [updateKey, setUpdateKey] = useState(0);
+    const [hierarchyVersion, setHierarchyVersion] = useState(() => hierarchyService?.getVersion() ?? 0);
+
+    useEffect(() => {
+        if (!hierarchyService) {
+            setHierarchyVersion(0);
+            return;
+        }
+
+        setHierarchyVersion(hierarchyService.getVersion());
+        return hierarchyService.subscribe(() => {
+            setHierarchyVersion(hierarchyService.getVersion());
+        });
+    }, [hierarchyService]);
 
     const trimmedQuery = searchQuery?.trim() ?? '';
     const hasSearchQuery = trimmedQuery.length > 0;
@@ -350,6 +366,11 @@ export function useListPaneData({
     );
     const manualSortGroupHeaderPropertyKey = getManualSortGroupHeaderPropertyKey(settings);
     const shouldRefreshOnCustomGroupHeaderMetadataChange = groupBy === 'custom' && manualSortGroupHeaderPropertyKey !== null;
+    const hierarchyParentByPath = useMemo(() => {
+        // hierarchyVersion is intentionally captured so service notifications rebuild this snapshot.
+        void hierarchyVersion;
+        return hierarchyService?.getParentEntries() ?? null;
+    }, [hierarchyService, hierarchyVersion]);
 
     const listItems = useMemo(() => {
         return buildListItems({
@@ -372,6 +393,8 @@ export function useListPaneData({
             sortOption,
             propertySortKey: sortSpec.propertyKey,
             isManualSortActive,
+            hierarchyParentByPath,
+            expandedNoteTreeNodes,
             manualSortGroupHeaderPropertyKey,
             wordCountTargetProperty: settings.wordCountTargetProperty
         });
@@ -386,6 +409,7 @@ export function useListPaneData({
         hiddenTags,
         listConfig,
         collapsedListGroups,
+        expandedNoteTreeNodes,
         selectedFolder,
         selectedTag,
         selectedProperty,
@@ -395,6 +419,7 @@ export function useListPaneData({
         sortOption,
         sortSpec.propertyKey,
         isManualSortActive,
+        hierarchyParentByPath,
         manualSortGroupHeaderPropertyKey,
         settings.wordCountTargetProperty
     ]);

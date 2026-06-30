@@ -27,6 +27,7 @@ import type { TagOperations } from '../services/TagOperations';
 import type { TagTreeService } from '../services/TagTreeService';
 import type { PropertyTreeService } from '../services/PropertyTreeService';
 import type { CommandQueueService } from '../services/CommandQueueService';
+import type { HierarchyService } from '../services/hierarchy/HierarchyService';
 import type { OmnisearchService } from '../services/OmnisearchService';
 import type ReleaseCheckService from '../services/ReleaseCheckService';
 
@@ -55,6 +56,8 @@ interface Services {
     propertyTreeService: PropertyTreeService | null;
     /** Command queue service for managing operations and their context */
     commandQueue: CommandQueueService | null;
+    /** Note hierarchy service for parent/child relationships inside folder lists */
+    hierarchyService: HierarchyService | null;
     /** Omnisearch integration service */
     omnisearchService: OmnisearchService | null;
     /** Release check service for GitHub update notifications */
@@ -102,6 +105,7 @@ export function ServicesProvider({ children, plugin }: { children: React.ReactNo
             tagTreeService: plugin.tagTreeService,
             propertyTreeService: plugin.propertyTreeService,
             commandQueue: plugin.commandQueue,
+            hierarchyService: plugin.hierarchyService,
             omnisearchService: plugin.omnisearchService,
             releaseCheckService: plugin.releaseCheckService
         };

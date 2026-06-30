@@ -38,6 +38,7 @@ import { TagOperations } from './services/TagOperations';
 import { TagTreeService } from './services/TagTreeService';
 import { PropertyTreeService } from './services/PropertyTreeService';
 import { CommandQueueService } from './services/CommandQueueService';
+import { HierarchyService } from './services/hierarchy/HierarchyService';
 import { OmnisearchService } from './services/OmnisearchService';
 import { FileSystemOperations } from './services/FileSystemService';
 import { getIconService } from './services/icons';
@@ -117,6 +118,7 @@ export default class NotebookNavigatorPlugin extends Plugin implements ISettings
     tagTreeService: TagTreeService | null = null;
     propertyTreeService: PropertyTreeService | null = null;
     commandQueue: CommandQueueService | null = null;
+    hierarchyService: HierarchyService | null = null;
     public settings: NotebookNavigatorSettings = { ...DEFAULT_SETTINGS };
     fileSystemOps: FileSystemOperations | null = null;
     omnisearchService: OmnisearchService | null = null;
@@ -467,6 +469,8 @@ export default class NotebookNavigatorPlugin extends Plugin implements ISettings
         // Initialize services
         this.tagTreeService = new TagTreeService();
         this.propertyTreeService = new PropertyTreeService();
+        this.hierarchyService = new HierarchyService(this.app);
+        await this.hierarchyService.load();
         this.metadataService = new MetadataService(
             this.app,
             this,
@@ -1179,6 +1183,11 @@ export default class NotebookNavigatorPlugin extends Plugin implements ISettings
 
         if (this.propertyTreeService) {
             this.propertyTreeService = null;
+        }
+
+        if (this.hierarchyService) {
+            this.hierarchyService.dispose();
+            this.hierarchyService = null;
         }
 
         // Clean up the command queue service

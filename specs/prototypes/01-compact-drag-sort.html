@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>01 默认拖动排序</title>
+    <link rel="stylesheet" href="./prototype.css">
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+    <script src="./prototype.js" defer></script>
+</head>
+<body>
+    <main class="prototype-page">
+        <section class="prototype-note">
+            <h1>01 默认拖动排序</h1>
+            <div class="prototype-links">
+                <a href="./index.html">索引</a>
+                <a href="./02-tree-drop-intent.html">下一版</a>
+            </div>
+        </section>
+
+        <section class="stage">
+            <div class="pane">
+                <div class="pane-inner">
+                    <div class="toolbar">
+                        <div class="folder-title">
+                            <i data-lucide="folder"></i>
+                            <span>方法</span>
+                        </div>
+                        <div class="toolset">
+                            <button class="icon-button" aria-label="搜索"><i data-lucide="search"></i></button>
+                            <button class="icon-button" aria-label="包含子文件夹"><i data-lucide="layers"></i></button>
+                            <button class="icon-button active" aria-label="排序"><i data-lucide="list-ordered"></i></button>
+                            <button class="icon-button" aria-label="外观"><i data-lucide="palette"></i></button>
+                            <button class="icon-button" aria-label="新建"><i data-lucide="square-pen"></i></button>
+                        </div>
+                    </div>
+
+                    <div class="search">
+                        <i data-lucide="search"></i>
+                        <span>搜索...</span>
+                        <i data-lucide="circle-help" style="margin-left:auto"></i>
+                    </div>
+
+                    <div class="group-label">
+                        <span>过去 7 天</span>
+                        <i data-lucide="chevron-down"></i>
+                    </div>
+
+                    <div class="list">
+                        <div class="row compact">
+                            <span class="row-icon"><i data-lucide="file-text"></i></span>
+                            <span class="label">一天修复人生 - Dan Koe重启协议</span>
+                            <span class="grip"><i data-lucide="grip-vertical"></i></span>
+                        </div>
+                        <div class="row compact">
+                            <span class="row-icon"><i data-lucide="file-text"></i></span>
+                            <span class="label">一天修复人生 - Dan Koe英文原文全文</span>
+                            <span class="grip"><i data-lucide="grip-vertical"></i></span>
+                        </div>
+                        <div class="row compact dragging">
+                            <span class="row-icon"><i data-lucide="file-text"></i></span>
+                            <span class="label">一天修复人生 - Dan Koe中文完整译文</span>
+                            <span class="grip"><i data-lucide="grip-vertical"></i></span>
+                        </div>
+                        <div class="insert-line after-row-3"></div>
+                        <div class="row compact selected">
+                            <span class="row-icon"><i data-lucide="file-text"></i></span>
+                            <span class="label">一天修复人生 - Dan Koe中文译文来源</span>
+                            <span class="grip"><i data-lucide="grip-vertical"></i></span>
+                        </div>
+                        <div class="row compact">
+                            <span class="row-icon"><i data-lucide="file-text"></i></span>
+                            <span class="label">一天修复人生 - Dan Koe英文原文索引</span>
+                            <span class="grip"><i data-lucide="grip-vertical"></i></span>
+                        </div>
+                        <div class="row compact muted">
+                            <span class="row-icon"><i data-lucide="file"></i></span>
+                            <span class="label">Sumink-Exports-2026-05-02.zip</span>
+                        </div>
+
+                        <div class="drag-overlay">
+                            <i data-lucide="file-text"></i>
+                            <span class="label">一天修复人生 - Dan Koe中文完整译文</span>
+                        </div>
+                        <div class="status-pill">
+                            <i data-lucide="check"></i>
+                            <span>sort_index 已保存</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <aside class="mini-panel">
+                <h2>设计取向</h2>
+                <div class="mini-panel-row"><span>默认密度</span><strong>紧凑</strong></div>
+                <div class="mini-panel-row"><span>排序入口</span><strong>工具栏排序</strong></div>
+                <div class="mini-panel-row"><span>编辑模式</span><strong>无</strong></div>
+                <div class="mini-panel-row"><span>完成按钮</span><strong>无</strong></div>
+                <div class="mini-panel-row"><span>保存反馈</span><strong>轻提示</strong></div>
+                <div class="legend">
+                    <div class="legend-item"><span class="legend-swatch"></span><span>横线表示同级插入位置</span></div>
+                    <div class="legend-item"><span class="legend-swatch nested"></span><span>非 Markdown 保持低优先级，不占顶部说明区</span></div>
+                </div>
+            </aside>
+        </section>
+    </main>
+</body>
+</html>
+

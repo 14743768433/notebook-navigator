@@ -311,6 +311,7 @@ export interface LocalStorageKeys {
     featureImageSizeKey: string;
     featureImagePixelSizeKey: string;
     collapsedListGroupsKey: string;
+    expandedNoteTreeNodesKey: string;
     mergeNotesSeparatorKey: string;
     mergeNotesMoveSourcesToTrashKey: string;
 }
@@ -375,6 +376,7 @@ export const STORAGE_KEYS: LocalStorageKeys = {
     featureImageSizeKey: 'notebook-navigator-feature-image-size',
     featureImagePixelSizeKey: 'notebook-navigator-feature-image-pixel-size',
     collapsedListGroupsKey: 'notebook-navigator-collapsed-list-groups',
+    expandedNoteTreeNodesKey: 'notebook-navigator-expanded-note-tree-nodes',
     mergeNotesSeparatorKey: 'notebook-navigator-merge-notes-separator',
     mergeNotesMoveSourcesToTrashKey: 'notebook-navigator-merge-notes-move-sources-to-trash'
 };

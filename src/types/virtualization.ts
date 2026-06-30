@@ -68,6 +68,10 @@ export interface ListPaneItem {
     fileIndex?: number;
     // Indicates if this file is pinned
     isPinned?: boolean;
+    depth?: number;
+    hasChildren?: boolean;
+    isExpanded?: boolean;
+    hierarchyParentPath?: string | null;
     searchMeta?: SearchResultMeta;
     // Pre-computed flag indicating if file has tags (for height calculation optimization)
     hasTags?: boolean;

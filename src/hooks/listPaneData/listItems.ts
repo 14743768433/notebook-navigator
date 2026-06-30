@@ -75,6 +75,8 @@ interface BuildListItemsArgs {
     sortOption: SortOption;
     propertySortKey?: string;
     isManualSortActive?: boolean;
+    hierarchyParentByPath?: ReadonlyMap<string, string> | null;
+    expandedNoteTreeNodes?: ReadonlySet<string>;
     manualSortGroupHeaderPropertyKey?: string | null;
     wordCountTargetProperty?: string;
 }
@@ -124,6 +126,8 @@ export function buildListItems({
     sortOption,
     propertySortKey = '',
     isManualSortActive = false,
+    hierarchyParentByPath = null,
+    expandedNoteTreeNodes,
     manualSortGroupHeaderPropertyKey = null,
     wordCountTargetProperty = ''
 }: BuildListItemsArgs): ListPaneItem[] {
@@ -332,6 +336,90 @@ export function buildListItems({
         maybePushManualSortCustomHeader(file);
         pushFileItem(file, overrides);
     };
+    const makeNoteTreeNodeKey = (filePath: string): string => `${selectedFolderPath ?? ''}\u0001${filePath}`;
+    const isDirectChildOfSelectedFolder = (file: TFile): boolean => file.parent?.path === selectedFolderPath;
+    const hasCurrentFolderHierarchy = (candidateFiles: readonly TFile[]): boolean => {
+        if (!hierarchyParentByPath || selectionType !== ItemType.FOLDER || !selectedFolderPath || !isManualSortActive) {
+            return false;
+        }
+
+        const currentFolderMarkdownPaths = new Set(
+            candidateFiles.filter(file => file.extension === 'md' && isDirectChildOfSelectedFolder(file)).map(file => file.path)
+        );
+        if (currentFolderMarkdownPaths.size === 0) {
+            return false;
+        }
+
+        for (const [childPath, parentPath] of hierarchyParentByPath) {
+            if (currentFolderMarkdownPaths.has(childPath) && currentFolderMarkdownPaths.has(parentPath)) {
+                return true;
+            }
+        }
+        return false;
+    };
+    const pushNoteTreeFiles = (candidateFiles: readonly TFile[]): boolean => {
+        if (!hasCurrentFolderHierarchy(candidateFiles)) {
+            return false;
+        }
+
+        const markdownFiles = candidateFiles.filter(file => file.extension === 'md' && isDirectChildOfSelectedFolder(file));
+        const nonTreeFiles = candidateFiles.filter(file => file.extension !== 'md' || !isDirectChildOfSelectedFolder(file));
+        const fileByPath = new Map(markdownFiles.map(file => [file.path, file]));
+        const childrenByParent = new Map<string, TFile[]>();
+        const roots: TFile[] = [];
+
+        markdownFiles.forEach(file => {
+            const parentPath = hierarchyParentByPath?.get(file.path) ?? null;
+            if (parentPath && fileByPath.has(parentPath)) {
+                const siblings = childrenByParent.get(parentPath) ?? [];
+                siblings.push(file);
+                childrenByParent.set(parentPath, siblings);
+                return;
+            }
+            roots.push(file);
+        });
+
+        const sortSiblings = (left: TFile, right: TFile): number => {
+            const leftRank = getCachedManualSortRank(app, left, propertySortKey);
+            const rightRank = getCachedManualSortRank(app, right, propertySortKey);
+            if (leftRank !== null && rightRank !== null && leftRank !== rightRank) {
+                return leftRank - rightRank;
+            }
+            if (leftRank !== null) {
+                return -1;
+            }
+            if (rightRank !== null) {
+                return 1;
+            }
+            return candidateFiles.findIndex(file => file.path === left.path) - candidateFiles.findIndex(file => file.path === right.path);
+        };
+
+        roots.sort(sortSiblings);
+        childrenByParent.forEach(children => children.sort(sortSiblings));
+
+        const visit = (file: TFile, depth: number, parentPath: string | null): void => {
+            const children = childrenByParent.get(file.path) ?? [];
+            const hasChildren = children.length > 0;
+            const nodeKey = makeNoteTreeNodeKey(file.path);
+            const isExpanded = !hasChildren || expandedNoteTreeNodes?.has(nodeKey) === true;
+            pushManualSortAwareFileItem(file, {
+                depth,
+                hasChildren,
+                isExpanded,
+                hierarchyParentPath: parentPath
+            });
+
+            if (!hasChildren || !isExpanded) {
+                return;
+            }
+
+            children.forEach(child => visit(child, depth + 1, file.path));
+        };
+
+        roots.forEach(file => visit(file, 0, null));
+        nonTreeFiles.forEach(file => pushManualSortAwareFileItem(file));
+        return true;
+    };
 
     if (pinnedFiles.length > 0) {
         pushHeaderItem({
@@ -380,9 +468,11 @@ export function buildListItems({
             });
         }
 
-        sortedFiles.forEach(file => {
-            pushManualSortAwareFileItem(file);
-        });
+        if (!pushNoteTreeFiles(sortedFiles)) {
+            sortedFiles.forEach(file => {
+                pushManualSortAwareFileItem(file);
+            });
+        }
 
         if (unsortedFiles.length > 0) {
             pushHeaderItem({

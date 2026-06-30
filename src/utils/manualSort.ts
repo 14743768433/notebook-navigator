@@ -278,6 +278,38 @@ export function moveManualSortMarkdownFiles<T extends ManualSortFileLike>(
     return [...remainingMarkdown.slice(0, insertionIndex), ...movedMarkdown, ...remainingMarkdown.slice(insertionIndex), ...nonMarkdown];
 }
 
+export function reorderManualSortMarkdownFilesAtDropTarget<T extends ManualSortFileLike>(
+    files: readonly T[],
+    activePath: string,
+    overPath: string,
+    selectedPaths: ReadonlySet<string>,
+    position: 'before' | 'after'
+): T[] | null {
+    const { markdown, nonMarkdown } = partitionManualSortFiles(files);
+    const activeFile = markdown.find(file => file.path === activePath);
+    const overFile = markdown.find(file => file.path === overPath);
+    if (!activeFile || !overFile) {
+        return null;
+    }
+
+    const movedPathSet = selectedPaths.has(activePath)
+        ? new Set(markdown.filter(file => selectedPaths.has(file.path)).map(file => file.path))
+        : new Set([activePath]);
+    if (movedPathSet.size === 0 || movedPathSet.has(overPath)) {
+        return null;
+    }
+
+    const movedMarkdown = markdown.filter(file => movedPathSet.has(file.path));
+    const remainingMarkdown = markdown.filter(file => !movedPathSet.has(file.path));
+    const overRemainingIndex = remainingMarkdown.findIndex(file => file.path === overPath);
+    if (overRemainingIndex === -1) {
+        return null;
+    }
+
+    const insertionIndex = position === 'after' ? overRemainingIndex + 1 : overRemainingIndex;
+    return [...remainingMarkdown.slice(0, insertionIndex), ...movedMarkdown, ...remainingMarkdown.slice(insertionIndex), ...nonMarkdown];
+}
+
 export function moveManualSortSelectionByDirection<T extends ManualSortFileLike>(
     files: readonly T[],
     activePath: string | null,

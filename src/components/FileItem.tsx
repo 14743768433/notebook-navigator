@@ -1030,11 +1030,21 @@ export const FileItem = React.memo(function FileItem({
         if (isSelected && hasSelectedAbove) classes.push('nn-has-selected-above');
         if (isSelected && hasSelectedBelow) classes.push('nn-has-selected-below');
         if (fileBackgroundColor) classes.push('nn-has-custom-background');
+        if (shouldShowFileIcon) classes.push('nn-file-has-visible-icon');
         // Apply muted style when file is normally hidden but shown via "show hidden items"
         if (isHidden) classes.push('nn-hidden-file');
         if (manualSortDisabled) classes.push('nn-file-manual-sort-disabled');
         return classes.join(' ');
-    }, [isSelected, isCompactMode, hasSelectedAbove, hasSelectedBelow, fileBackgroundColor, isHidden, manualSortDisabled]);
+    }, [
+        isSelected,
+        isCompactMode,
+        hasSelectedAbove,
+        hasSelectedBelow,
+        fileBackgroundColor,
+        shouldShowFileIcon,
+        isHidden,
+        manualSortDisabled
+    ]);
 
     const fileRowStyle = useMemo(() => {
         if (!fileBackgroundColor) {
@@ -1373,21 +1383,19 @@ export const FileItem = React.memo(function FileItem({
                     </div>
                 )}
                 <div className="nn-file-inner-content">
-                    {showFileIcons ? (
+                    {shouldShowFileIcon ? (
                         <div className="nn-file-icon-slot">
-                            {shouldShowFileIcon ? (
-                                <span
-                                    ref={fileIconRef}
-                                    className={fileIconClassName}
-                                    data-has-color={fileIconHasColor ? 'true' : 'false'}
-                                    style={fileIconStyle}
-                                    title={
-                                        !isMobile && !settings.showTooltips && showFileIconUnfinishedTask
-                                            ? (unfinishedTaskTooltipText ?? undefined)
-                                            : undefined
-                                    }
-                                />
-                            ) : null}
+                            <span
+                                ref={fileIconRef}
+                                className={fileIconClassName}
+                                data-has-color={fileIconHasColor ? 'true' : 'false'}
+                                style={fileIconStyle}
+                                title={
+                                    !isMobile && !settings.showTooltips && showFileIconUnfinishedTask
+                                        ? (unfinishedTaskTooltipText ?? undefined)
+                                        : undefined
+                                }
+                            />
                         </div>
                     ) : null}
                     {isCompactMode ? (

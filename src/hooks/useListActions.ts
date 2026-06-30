@@ -94,7 +94,6 @@ type ManualSortPropertyStats = {
 };
 
 interface UseListActionsOptions {
-    onManualSortStart?: (propertyKey: string) => void;
     getManualSortNewFileContext?: () => ManualSortNewFilePlacementContext | null;
     trackRevealFileAvailability?: boolean;
 }
@@ -453,7 +452,6 @@ function collectAllPropertyNodeIds(propertyTreeService: NonNullable<ReturnType<t
  * @returns Object containing action handlers and computed values for list pane operations
  */
 export function useListActions({
-    onManualSortStart,
     getManualSortNewFileContext,
     trackRevealFileAvailability = false
 }: UseListActionsOptions = {}) {
@@ -1692,18 +1690,6 @@ export function useListActions({
             });
 
             menu.addItem(item => {
-                item.setTitle(strings.paneHeader.editSortOrder)
-                    .setIcon('lucide-list-ordered')
-                    .setDisabled(!isManualSortActive || !onManualSortStart)
-                    .onClick(() => {
-                        if (!isManualSortActive || !onManualSortStart) {
-                            return;
-                        }
-                        onManualSortStart(currentSortSpec.propertyKey);
-                    });
-            });
-
-            menu.addItem(item => {
                 item.setTitle(strings.paneHeader.removeSortProperty)
                     .setIcon('lucide-eraser')
                     .setDisabled(manualSortPropertyCount === 0)
@@ -1837,8 +1823,7 @@ export function useListActions({
             selectionState.selectionType,
             setSelectionGroupOverride,
             setSelectionSortOverride,
-            settings,
-            onManualSortStart
+            settings
         ]
     );
 
