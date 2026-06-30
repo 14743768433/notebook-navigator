@@ -198,7 +198,11 @@ export function joinMarkdownFrontmatter(parts: Pick<MarkdownFrontmatterParts, 'p
     return `${parts.prefix}${body}`;
 }
 
-export async function saveSequentialReadingSection(vault: Pick<Vault, 'modify' | 'read'>, file: TFile, bodyMarkdown: string): Promise<void> {
+export async function saveSequentialReadingSection(
+    vault: Pick<Vault, 'modify' | 'read'>,
+    file: TFile,
+    bodyMarkdown: string
+): Promise<void> {
     const original = await vault.read(file);
     const parts = splitMarkdownFrontmatter(original);
     await vault.modify(file, joinMarkdownFrontmatter(parts, bodyMarkdown));

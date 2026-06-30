@@ -165,7 +165,12 @@ export function useListPaneSelectionCoordinator({
 
     const tryRevealSequentialReading = useCallback(
         (file: TFile): boolean => {
-            if (isSearchActive || file.extension !== 'md' || selectionState.selectionType !== ItemType.FOLDER || !selectionState.selectedFolder) {
+            if (
+                isSearchActive ||
+                file.extension !== 'md' ||
+                selectionState.selectionType !== ItemType.FOLDER ||
+                !selectionState.selectedFolder
+            ) {
                 return false;
             }
 

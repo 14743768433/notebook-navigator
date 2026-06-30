@@ -772,11 +772,7 @@ export default class NotebookNavigatorPlugin extends Plugin implements ISettings
     public revealSequentialReadingFile(folderPath: string, filePath: string): boolean {
         for (const leaf of this.app.workspace.getLeavesOfType(NOTEBOOK_NAVIGATOR_SEQUENTIAL_READING_VIEW)) {
             const view = leaf.view;
-            if (
-                !isSequentialReadingView(view) ||
-                view.getSequentialReadingFolderPath() !== folderPath ||
-                !view.containsFile(filePath)
-            ) {
+            if (!isSequentialReadingView(view) || view.getSequentialReadingFolderPath() !== folderPath || !view.containsFile(filePath)) {
                 continue;
             }
 

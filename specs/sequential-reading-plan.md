@@ -14,20 +14,30 @@
 
 调研结论：
 
-1. Obsidian 自定义 view 是合适承载方式。官方开发文档把 view 作为显示内容的核心 UI 扩展点；本项目当前 `node_modules/obsidian/obsidian.d.ts` 也确认 `Plugin.registerView(...)`、`ItemView`、`WorkspaceLeaf.setViewState(...)` 是可用 API。
-2. `MarkdownRenderer.render(app, markdown, el, sourcePath, component)` 的 `sourcePath` 参数用于解析相对内部链接，适合只读 fallback 和错误降级视图。
-3. `Vault.cachedRead(file)` 适合展示；但保存前必须用 `Vault.read(file)` 读取最新原文，再拼接保留的 frontmatter 后 `Vault.modify(file, data)` 写回。
-4. `MetadataCache.on('changed')` 不处理 rename，官方类型注释要求 rename 走 vault rename event。因此 view 自治刷新必须同时监听 vault create/delete/rename/modify 和 metadata changed/resolved。
-5. Fevol / Matthew Meyers 的 `EmbeddableMarkdownEditor` gist 证明可以在任意 DOM 容器内挂 Obsidian 内部 CM6 Markdown editor，并通过独立 editor state 支撑每 section 一个编辑器的方案。但它依赖内部 API，必须做兼容兜底。
-6. Obsidian Kanban 的 Markdown editor 源码也采用类似“嵌入 Markdown editor + mock controller/activeEditor”的思路，说明这种路线在成熟插件中出现过。
-7. Textflow 证明“多个 note 组成一个 editable flow”是成熟需求，但它的普通 flow 采用拼接文件、UUID region tracking、双向同步和完整性检查，复杂度与风险较高。我们的方案不创建拼接文件、每 section 独立编辑器，可以避开大部分 region mapping 和跨边界编辑风险。
+1. Obsidian 自定义 view 是合适承载方式。官方开发文档把 view 作为显示内容的核心 UI 扩展点；本项目当前
+   `node_modules/obsidian/obsidian.d.ts` 也确认
+   `Plugin.registerView(...)`、`ItemView`、`WorkspaceLeaf.setViewState(...)` 是可用 API。
+2. `MarkdownRenderer.render(app, markdown, el, sourcePath, component)` 的 `sourcePath`
+   参数用于解析相对内部链接，适合只读 fallback 和错误降级视图。
+3. `Vault.cachedRead(file)` 适合展示；但保存前必须用 `Vault.read(file)` 读取最新原文，再拼接保留的 frontmatter 后
+   `Vault.modify(file, data)` 写回。
+4. `MetadataCache.on('changed')` 不处理 rename，官方类型注释要求 rename 走 vault rename
+   event。因此 view 自治刷新必须同时监听 vault create/delete/rename/modify 和 metadata changed/resolved。
+5. Fevol / Matthew Meyers 的 `EmbeddableMarkdownEditor` gist 证明可以在任意 DOM 容器内挂 Obsidian 内部 CM6 Markdown
+   editor，并通过独立 editor state 支撑每 section 一个编辑器的方案。但它依赖内部 API，必须做兼容兜底。
+6. Obsidian Kanban 的 Markdown editor 源码也采用类似“嵌入 Markdown editor + mock
+   controller/activeEditor”的思路，说明这种路线在成熟插件中出现过。
+7. Textflow 证明“多个 note 组成一个 editable flow”是成熟需求，但它的普通 flow 采用拼接文件、UUID region
+   tracking、双向同步和完整性检查，复杂度与风险较高。我们的方案不创建拼接文件、每 section 独立编辑器，可以避开大部分 region
+   mapping 和跨边界编辑风险。
 
 参考：
 
 - Obsidian Views: https://docs.obsidian.md/Plugins/User+interface/Views
 - Obsidian API types: https://github.com/obsidianmd/obsidian-api
 - Embeddable CM Markdown Editor gist: https://gist.github.com/Fevol/caa478ce303e69eabede7b12b2323838
-- Obsidian Kanban MarkdownEditor: https://github.com/mgmeyers/obsidian-kanban/blob/main/src/components/Editor/MarkdownEditor.tsx
+- Obsidian Kanban MarkdownEditor:
+  https://github.com/mgmeyers/obsidian-kanban/blob/main/src/components/Editor/MarkdownEditor.tsx
 - Textflow: https://github.com/tine-schreibt/textflow
 
 ## Decisions

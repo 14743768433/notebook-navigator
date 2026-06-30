@@ -467,9 +467,12 @@ export class SequentialReadingView extends ItemView {
         } catch (error) {
             if (!this.editorFallbackNoticeShown) {
                 this.editorFallbackNoticeShown = true;
-                showNotice(strings.sequentialReading?.editorUnavailable ?? 'Sequential reading editor is unavailable; showing read-only preview.', {
-                    variant: 'warning'
-                });
+                showNotice(
+                    strings.sequentialReading?.editorUnavailable ?? 'Sequential reading editor is unavailable; showing read-only preview.',
+                    {
+                        variant: 'warning'
+                    }
+                );
             }
             container.classList.add('nn-sequential-reading-readonly-fallback');
             runtime.statusEl.classList.add('nn-sequential-reading-status-error');
