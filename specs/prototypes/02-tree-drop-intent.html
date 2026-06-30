@@ -1,112 +1,121 @@
 <!doctype html>
 <html lang="zh-CN">
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>02 层级意图区分</title>
-    <link rel="stylesheet" href="./prototype.css">
-    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
-    <script src="./prototype.js" defer></script>
-</head>
-<body>
-    <main class="prototype-page">
-        <section class="prototype-note">
-            <h1>02 层级意图区分</h1>
-            <div class="state-toggle">
-                <button class="active" data-state-target="intent-demo" data-state="reorder">换顺序</button>
-                <button data-state-target="intent-demo" data-state="nest">变子节点</button>
-            </div>
-            <div class="prototype-links">
-                <a href="./01-compact-drag-sort.html">上一版</a>
-                <a href="./03-integrated-outline.html">下一版</a>
-            </div>
-        </section>
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>02 层级意图区分</title>
+        <link rel="stylesheet" href="./prototype.css" />
+        <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+        <script src="./prototype.js" defer></script>
+    </head>
+    <body>
+        <main class="prototype-page">
+            <section class="prototype-note">
+                <h1>02 层级意图区分</h1>
+                <div class="state-toggle">
+                    <button class="active" data-state-target="intent-demo" data-state="reorder">换顺序</button>
+                    <button data-state-target="intent-demo" data-state="nest">变子节点</button>
+                </div>
+                <div class="prototype-links">
+                    <a href="./01-compact-drag-sort.html">上一版</a>
+                    <a href="./03-integrated-outline.html">下一版</a>
+                </div>
+            </section>
 
-        <section class="stage" id="intent-demo" data-demo-state="reorder">
-            <div class="pane">
-                <div class="pane-inner">
-                    <div class="toolbar">
-                        <div class="folder-title">
-                            <i data-lucide="folder"></i>
-                            <span>操作系统</span>
+            <section class="stage" id="intent-demo" data-demo-state="reorder">
+                <div class="pane">
+                    <div class="pane-inner">
+                        <div class="toolbar">
+                            <div class="folder-title">
+                                <i data-lucide="folder"></i>
+                                <span>操作系统</span>
+                            </div>
+                            <div class="toolset">
+                                <button class="icon-button" aria-label="搜索"><i data-lucide="search"></i></button>
+                                <button class="icon-button active" aria-label="排序"><i data-lucide="list-tree"></i></button>
+                                <button class="icon-button" aria-label="外观"><i data-lucide="palette"></i></button>
+                                <button class="icon-button" aria-label="新建"><i data-lucide="square-pen"></i></button>
+                            </div>
                         </div>
-                        <div class="toolset">
-                            <button class="icon-button" aria-label="搜索"><i data-lucide="search"></i></button>
-                            <button class="icon-button active" aria-label="排序"><i data-lucide="list-tree"></i></button>
-                            <button class="icon-button" aria-label="外观"><i data-lucide="palette"></i></button>
-                            <button class="icon-button" aria-label="新建"><i data-lucide="square-pen"></i></button>
-                        </div>
-                    </div>
 
-                    <div class="search">
-                        <i data-lucide="search"></i>
-                        <span>搜索...</span>
-                    </div>
+                        <div class="search">
+                            <i data-lucide="search"></i>
+                            <span>搜索...</span>
+                        </div>
 
-                    <div class="list">
-                        <div class="row compact" style="--depth:0">
-                            <span class="chevron"><i data-lucide="chevron-down"></i></span>
-                            <span class="row-icon"><i data-lucide="file-text"></i></span>
-                            <span class="label">进程管理</span>
-                        </div>
-                        <div class="row compact" style="--depth:1">
-                            <span class="row-icon"><i data-lucide="file-text"></i></span>
-                            <span class="label">程序如何变成线程/进程？</span>
-                        </div>
-                        <div class="row compact" style="--depth:1">
-                            <span class="row-icon"><i data-lucide="file-text"></i></span>
-                            <span class="label">CPU如何切换和调度线程 进程 等等</span>
-                        </div>
-                        <div class="row compact parent-target intent-target" style="--depth:1">
-                            <span class="chevron"><i data-lucide="chevron-down"></i></span>
-                            <span class="row-icon"><i data-lucide="file-text"></i></span>
-                            <span class="label">线程进程之间如何进行通信</span>
-                            <span class="grip"><i data-lucide="grip-vertical"></i></span>
-                        </div>
-                        <div class="row compact" style="--depth:2">
-                            <span class="row-icon"><i data-lucide="file-text"></i></span>
-                            <span class="label">进程之间如何通信</span>
-                        </div>
-                        <div class="row compact selected" style="--depth:2">
-                            <span class="chevron"><i data-lucide="chevron-down"></i></span>
-                            <span class="row-icon"><i data-lucide="file-text"></i></span>
-                            <span class="label">线程之间的通信</span>
-                        </div>
-                        <div class="row compact drop-preview intent-nest-preview" style="--depth:3">
-                            <span class="row-icon"><i data-lucide="file-plus-2"></i></span>
-                            <span class="label">共享内存实现的原理</span>
-                        </div>
-                        <div class="row compact" style="--depth:0">
-                            <span class="chevron"><i data-lucide="chevron-down"></i></span>
-                            <span class="row-icon"><i data-lucide="file-text"></i></span>
-                            <span class="label">同步</span>
-                        </div>
-                        <div class="row compact" style="--depth:1">
-                            <span class="row-icon"><i data-lucide="file-text"></i></span>
-                            <span class="label">线程的同步</span>
-                        </div>
-                        <div class="insert-line after-row-5 intent-insert"></div>
-                        <div class="drag-overlay nested intent-overlay">
-                            <i data-lucide="file-text"></i>
-                            <span class="label">共享内存实现的原理</span>
+                        <div class="list">
+                            <div class="row compact" style="--depth: 0">
+                                <span class="chevron"><i data-lucide="chevron-down"></i></span>
+                                <span class="row-icon"><i data-lucide="file-text"></i></span>
+                                <span class="label">进程管理</span>
+                            </div>
+                            <div class="row compact" style="--depth: 1">
+                                <span class="row-icon"><i data-lucide="file-text"></i></span>
+                                <span class="label">程序如何变成线程/进程？</span>
+                            </div>
+                            <div class="row compact" style="--depth: 1">
+                                <span class="row-icon"><i data-lucide="file-text"></i></span>
+                                <span class="label">CPU如何切换和调度线程 进程 等等</span>
+                            </div>
+                            <div class="row compact parent-target intent-target" style="--depth: 1">
+                                <span class="chevron"><i data-lucide="chevron-down"></i></span>
+                                <span class="row-icon"><i data-lucide="file-text"></i></span>
+                                <span class="label">线程进程之间如何进行通信</span>
+                                <span class="grip"><i data-lucide="grip-vertical"></i></span>
+                            </div>
+                            <div class="row compact" style="--depth: 2">
+                                <span class="row-icon"><i data-lucide="file-text"></i></span>
+                                <span class="label">进程之间如何通信</span>
+                            </div>
+                            <div class="row compact selected" style="--depth: 2">
+                                <span class="chevron"><i data-lucide="chevron-down"></i></span>
+                                <span class="row-icon"><i data-lucide="file-text"></i></span>
+                                <span class="label">线程之间的通信</span>
+                            </div>
+                            <div class="row compact drop-preview intent-nest-preview" style="--depth: 3">
+                                <span class="row-icon"><i data-lucide="file-plus-2"></i></span>
+                                <span class="label">共享内存实现的原理</span>
+                            </div>
+                            <div class="row compact" style="--depth: 0">
+                                <span class="chevron"><i data-lucide="chevron-down"></i></span>
+                                <span class="row-icon"><i data-lucide="file-text"></i></span>
+                                <span class="label">同步</span>
+                            </div>
+                            <div class="row compact" style="--depth: 1">
+                                <span class="row-icon"><i data-lucide="file-text"></i></span>
+                                <span class="label">线程的同步</span>
+                            </div>
+                            <div class="insert-line after-row-5 intent-insert"></div>
+                            <div class="drag-overlay nested intent-overlay">
+                                <i data-lucide="file-text"></i>
+                                <span class="label">共享内存实现的原理</span>
+                            </div>
                         </div>
                     </div>
                 </div>
-            </div>
 
-            <aside class="mini-panel">
-                <h2>当前状态</h2>
-                <div class="mini-panel-row"><span>正在表达</span><strong class="state-readout reorder-only">换顺序</strong><strong class="state-readout nest-only">变成子节点</strong></div>
-                <div class="mini-panel-row"><span>主反馈</span><strong class="state-readout reorder-only">横向插入线</strong><strong class="state-readout nest-only">父节点高亮</strong></div>
-                <div class="mini-panel-row"><span>落点</span><strong class="state-readout reorder-only">同级位置</strong><strong class="state-readout nest-only">缩进预览</strong></div>
-                <div class="mini-panel-row"><span>非法落点</span><strong>不显示预览</strong></div>
-                <div class="legend">
-                    <div class="legend-item"><span class="legend-swatch"></span><span>换顺序：同层级上/下插入</span></div>
-                    <div class="legend-item"><span class="legend-swatch parent"></span><span>变子节点：目标父节点高亮</span></div>
-                    <div class="legend-item"><span class="legend-swatch nested"></span><span>缩进预览：显示新子节点位置</span></div>
-                </div>
-            </aside>
-        </section>
-    </main>
-</body>
+                <aside class="mini-panel">
+                    <h2>当前状态</h2>
+                    <div class="mini-panel-row">
+                        <span>正在表达</span><strong class="state-readout reorder-only">换顺序</strong
+                        ><strong class="state-readout nest-only">变成子节点</strong>
+                    </div>
+                    <div class="mini-panel-row">
+                        <span>主反馈</span><strong class="state-readout reorder-only">横向插入线</strong
+                        ><strong class="state-readout nest-only">父节点高亮</strong>
+                    </div>
+                    <div class="mini-panel-row">
+                        <span>落点</span><strong class="state-readout reorder-only">同级位置</strong
+                        ><strong class="state-readout nest-only">缩进预览</strong>
+                    </div>
+                    <div class="mini-panel-row"><span>非法落点</span><strong>不显示预览</strong></div>
+                    <div class="legend">
+                        <div class="legend-item"><span class="legend-swatch"></span><span>换顺序：同层级上/下插入</span></div>
+                        <div class="legend-item"><span class="legend-swatch parent"></span><span>变子节点：目标父节点高亮</span></div>
+                        <div class="legend-item"><span class="legend-swatch nested"></span><span>缩进预览：显示新子节点位置</span></div>
+                    </div>
+                </aside>
+            </section>
+        </main>
+    </body>
 </html>

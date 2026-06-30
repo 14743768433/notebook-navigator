@@ -451,10 +451,7 @@ function collectAllPropertyNodeIds(propertyTreeService: NonNullable<ReturnType<t
  *
  * @returns Object containing action handlers and computed values for list pane operations
  */
-export function useListActions({
-    getManualSortNewFileContext,
-    trackRevealFileAvailability = false
-}: UseListActionsOptions = {}) {
+export function useListActions({ getManualSortNewFileContext, trackRevealFileAvailability = false }: UseListActionsOptions = {}) {
     const { app, plugin, tagTreeService, propertyTreeService } = useServices();
     const settings = useSettingsState();
     const vaultProfileId = settings.vaultProfile;

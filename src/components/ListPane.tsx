@@ -477,16 +477,9 @@ export const ListPane = React.memo(
                 propertyKeyboardReorderScrollPathRef.current = null;
                 setPropertyKeyboardReorderState(null);
             }
-        }, [
-            effectivePropertySortKey,
-            isManualSortActive,
-            isSearchActive,
-            manualSortSelectionKey,
-            propertyKeyboardReorderState
-        ]);
+        }, [effectivePropertySortKey, isManualSortActive, isSearchActive, manualSortSelectionKey, propertyKeyboardReorderState]);
 
-        const canUsePropertyKeyboardReorder =
-            !isSearchActive && isManualSortActive && effectivePropertySortKey.length > 0;
+        const canUsePropertyKeyboardReorder = !isSearchActive && isManualSortActive && effectivePropertySortKey.length > 0;
         const activePropertyKeyboardReorderState =
             canUsePropertyKeyboardReorder &&
             propertyKeyboardReorderState?.selectionKey === manualSortSelectionKey &&
@@ -1198,15 +1191,8 @@ export const ListPane = React.memo(
                 }
 
                 const contextFilter: NavigatorContext = 'folder';
-                const pinnedDisplayScope = settings.filterPinnedByFolder
-                    ? { restrictToFolderPath: selectedFolder.path }
-                    : undefined;
-                const { unpinnedFiles } = partitionPinnedFiles(
-                    files,
-                    settings.pinnedNotes,
-                    contextFilter,
-                    pinnedDisplayScope
-                );
+                const pinnedDisplayScope = settings.filterPinnedByFolder ? { restrictToFolderPath: selectedFolder.path } : undefined;
+                const { unpinnedFiles } = partitionPinnedFiles(files, settings.pinnedNotes, contextFilter, pinnedDisplayScope);
                 const activeFile = app.vault.getFileByPath(activePath);
                 const filesInScope = unpinnedFiles.filter(file => {
                     if (file.extension !== 'md' || getParentFolderPath(file.path) !== selectedFolder.path) {
@@ -1626,18 +1612,14 @@ export const ListPane = React.memo(
                         onNoteTreeToggle={handleNoteTreeToggle}
                     />
                     {/* iOS: keep the floating toolbar inside the panel */}
-                    {shouldRenderBottomToolbarInsidePanel ? (
-                        <div className="nn-pane-bottom-toolbar">{listToolbar}</div>
-                    ) : null}
+                    {shouldRenderBottomToolbarInsidePanel ? <div className="nn-pane-bottom-toolbar">{listToolbar}</div> : null}
                 </div>
                 {shouldRenderCalendarOverlay ? (
                     <div className="nn-navigation-calendar-overlay">
                         <Calendar onWeekCountChange={setCalendarWeekCount} onAddDateFilter={modifySearchWithDateToken} />
                     </div>
                 ) : null}
-                {shouldRenderBottomToolbarOutsidePanel ? (
-                    <div className="nn-pane-bottom-toolbar">{listToolbar}</div>
-                ) : null}
+                {shouldRenderBottomToolbarOutsidePanel ? <div className="nn-pane-bottom-toolbar">{listToolbar}</div> : null}
             </div>
         );
     })

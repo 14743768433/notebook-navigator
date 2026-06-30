@@ -282,9 +282,7 @@ button.nn-note-tree-toggle:active {
 .nn-list-drop-indicator {
     position: absolute;
     z-index: 8;
-    inset-inline-start: calc(
-        var(--nn-file-item-padding-horizontal) + var(--nn-drop-depth, 0) * var(--nn-note-tree-indent, 28px)
-    );
+    inset-inline-start: calc(var(--nn-file-item-padding-horizontal) + var(--nn-drop-depth, 0) * var(--nn-note-tree-indent, 28px));
     inset-inline-end: var(--nn-file-item-padding-horizontal);
     height: 1px;
     border-radius: 1px;

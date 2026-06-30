@@ -1,131 +1,132 @@
 <!doctype html>
 <html lang="zh-CN">
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>03 组合形态</title>
-    <link rel="stylesheet" href="./prototype.css">
-    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
-    <script src="./prototype.js" defer></script>
-</head>
-<body>
-    <main class="prototype-page">
-        <section class="prototype-note">
-            <h1>03 组合形态</h1>
-            <div class="prototype-links">
-                <a href="./02-tree-drop-intent.html">上一版</a>
-                <a href="./index.html">索引</a>
-            </div>
-        </section>
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>03 组合形态</title>
+        <link rel="stylesheet" href="./prototype.css" />
+        <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+        <script src="./prototype.js" defer></script>
+    </head>
+    <body>
+        <main class="prototype-page">
+            <section class="prototype-note">
+                <h1>03 组合形态</h1>
+                <div class="prototype-links">
+                    <a href="./02-tree-drop-intent.html">上一版</a>
+                    <a href="./index.html">索引</a>
+                </div>
+            </section>
 
-        <section class="stage">
-            <div class="pane">
-                <div class="pane-inner">
-                    <div class="toolbar">
-                        <div class="folder-title">
-                            <i data-lucide="folder"></i>
-                            <span>方法 / 操作系统</span>
+            <section class="stage">
+                <div class="pane">
+                    <div class="pane-inner">
+                        <div class="toolbar">
+                            <div class="folder-title">
+                                <i data-lucide="folder"></i>
+                                <span>方法 / 操作系统</span>
+                            </div>
+                            <div class="toolset">
+                                <button class="icon-button" aria-label="搜索"><i data-lucide="search"></i></button>
+                                <button class="icon-button" aria-label="包含子文件夹"><i data-lucide="layers"></i></button>
+                                <button class="icon-button active" aria-label="排序"><i data-lucide="list-tree"></i></button>
+                                <button class="icon-button" aria-label="外观"><i data-lucide="palette"></i></button>
+                                <button class="icon-button" aria-label="新建"><i data-lucide="square-pen"></i></button>
+                            </div>
                         </div>
-                        <div class="toolset">
-                            <button class="icon-button" aria-label="搜索"><i data-lucide="search"></i></button>
-                            <button class="icon-button" aria-label="包含子文件夹"><i data-lucide="layers"></i></button>
-                            <button class="icon-button active" aria-label="排序"><i data-lucide="list-tree"></i></button>
-                            <button class="icon-button" aria-label="外观"><i data-lucide="palette"></i></button>
-                            <button class="icon-button" aria-label="新建"><i data-lucide="square-pen"></i></button>
-                        </div>
-                    </div>
 
-                    <div class="search">
-                        <i data-lucide="search"></i>
-                        <span>搜索...</span>
-                    </div>
+                        <div class="search">
+                            <i data-lucide="search"></i>
+                            <span>搜索...</span>
+                        </div>
 
-                    <div class="group-label">
-                        <span>项目笔记</span>
-                        <i data-lucide="chevron-down"></i>
-                    </div>
+                        <div class="group-label">
+                            <span>项目笔记</span>
+                            <i data-lucide="chevron-down"></i>
+                        </div>
 
-                    <div class="list">
-                        <div class="row compact selected" style="--depth:0">
-                            <span class="chevron"><i data-lucide="chevron-down"></i></span>
-                            <span class="row-icon"><i data-lucide="file-text"></i></span>
-                            <span class="label">进程管理</span>
-                            <span class="grip"><i data-lucide="grip-vertical"></i></span>
-                        </div>
-                        <div class="row compact" style="--depth:1">
-                            <span class="row-icon"><i data-lucide="file-text"></i></span>
-                            <span class="label">程序如何变成线程/进程？</span>
-                            <span class="grip"><i data-lucide="grip-vertical"></i></span>
-                        </div>
-                        <div class="row compact" style="--depth:1">
-                            <span class="row-icon"><i data-lucide="file-text"></i></span>
-                            <span class="label">CPU如何切换和调度线程 进程 等等</span>
-                            <span class="grip"><i data-lucide="grip-vertical"></i></span>
-                        </div>
-                        <div class="row compact parent-target" style="--depth:1">
-                            <span class="chevron"><i data-lucide="chevron-down"></i></span>
-                            <span class="row-icon"><i data-lucide="file-text"></i></span>
-                            <span class="label">线程进程之间如何进行通信</span>
-                            <span class="grip"><i data-lucide="grip-vertical"></i></span>
-                        </div>
-                        <div class="row compact" style="--depth:2">
-                            <span class="row-icon"><i data-lucide="file-text"></i></span>
-                            <span class="label">进程之间如何通信</span>
-                            <span class="grip"><i data-lucide="grip-vertical"></i></span>
-                        </div>
-                        <div class="row compact" style="--depth:2">
-                            <span class="chevron"><i data-lucide="chevron-down"></i></span>
-                            <span class="row-icon"><i data-lucide="file-text"></i></span>
-                            <span class="label">线程之间的通信</span>
-                            <span class="grip"><i data-lucide="grip-vertical"></i></span>
-                        </div>
-                        <div class="row compact drop-preview" style="--depth:3">
-                            <span class="row-icon"><i data-lucide="file-plus-2"></i></span>
-                            <span class="label">共享内存实现的原理</span>
-                        </div>
-                        <div class="row compact" style="--depth:0">
-                            <span class="chevron"><i data-lucide="chevron-down"></i></span>
-                            <span class="row-icon"><i data-lucide="file-text"></i></span>
-                            <span class="label">同步</span>
-                            <span class="grip"><i data-lucide="grip-vertical"></i></span>
-                        </div>
-                        <div class="row compact" style="--depth:1">
-                            <span class="row-icon"><i data-lucide="file-text"></i></span>
-                            <span class="label">线程的同步</span>
-                            <span class="grip"><i data-lucide="grip-vertical"></i></span>
-                        </div>
-                        <div class="row compact" style="--depth:1">
-                            <span class="row-icon"><i data-lucide="file-text"></i></span>
-                            <span class="label">临界区和锁相比优势</span>
-                            <span class="grip"><i data-lucide="grip-vertical"></i></span>
-                        </div>
-                        <div class="row compact muted" style="--depth:0">
-                            <span class="row-icon"><i data-lucide="file"></i></span>
-                            <span class="label">进程管理.pdf</span>
-                        </div>
-                        <div class="drag-overlay nested">
-                            <i data-lucide="file-text"></i>
-                            <span class="label">共享内存实现的原理</span>
+                        <div class="list">
+                            <div class="row compact selected" style="--depth: 0">
+                                <span class="chevron"><i data-lucide="chevron-down"></i></span>
+                                <span class="row-icon"><i data-lucide="file-text"></i></span>
+                                <span class="label">进程管理</span>
+                                <span class="grip"><i data-lucide="grip-vertical"></i></span>
+                            </div>
+                            <div class="row compact" style="--depth: 1">
+                                <span class="row-icon"><i data-lucide="file-text"></i></span>
+                                <span class="label">程序如何变成线程/进程？</span>
+                                <span class="grip"><i data-lucide="grip-vertical"></i></span>
+                            </div>
+                            <div class="row compact" style="--depth: 1">
+                                <span class="row-icon"><i data-lucide="file-text"></i></span>
+                                <span class="label">CPU如何切换和调度线程 进程 等等</span>
+                                <span class="grip"><i data-lucide="grip-vertical"></i></span>
+                            </div>
+                            <div class="row compact parent-target" style="--depth: 1">
+                                <span class="chevron"><i data-lucide="chevron-down"></i></span>
+                                <span class="row-icon"><i data-lucide="file-text"></i></span>
+                                <span class="label">线程进程之间如何进行通信</span>
+                                <span class="grip"><i data-lucide="grip-vertical"></i></span>
+                            </div>
+                            <div class="row compact" style="--depth: 2">
+                                <span class="row-icon"><i data-lucide="file-text"></i></span>
+                                <span class="label">进程之间如何通信</span>
+                                <span class="grip"><i data-lucide="grip-vertical"></i></span>
+                            </div>
+                            <div class="row compact" style="--depth: 2">
+                                <span class="chevron"><i data-lucide="chevron-down"></i></span>
+                                <span class="row-icon"><i data-lucide="file-text"></i></span>
+                                <span class="label">线程之间的通信</span>
+                                <span class="grip"><i data-lucide="grip-vertical"></i></span>
+                            </div>
+                            <div class="row compact drop-preview" style="--depth: 3">
+                                <span class="row-icon"><i data-lucide="file-plus-2"></i></span>
+                                <span class="label">共享内存实现的原理</span>
+                            </div>
+                            <div class="row compact" style="--depth: 0">
+                                <span class="chevron"><i data-lucide="chevron-down"></i></span>
+                                <span class="row-icon"><i data-lucide="file-text"></i></span>
+                                <span class="label">同步</span>
+                                <span class="grip"><i data-lucide="grip-vertical"></i></span>
+                            </div>
+                            <div class="row compact" style="--depth: 1">
+                                <span class="row-icon"><i data-lucide="file-text"></i></span>
+                                <span class="label">线程的同步</span>
+                                <span class="grip"><i data-lucide="grip-vertical"></i></span>
+                            </div>
+                            <div class="row compact" style="--depth: 1">
+                                <span class="row-icon"><i data-lucide="file-text"></i></span>
+                                <span class="label">临界区和锁相比优势</span>
+                                <span class="grip"><i data-lucide="grip-vertical"></i></span>
+                            </div>
+                            <div class="row compact muted" style="--depth: 0">
+                                <span class="row-icon"><i data-lucide="file"></i></span>
+                                <span class="label">进程管理.pdf</span>
+                            </div>
+                            <div class="drag-overlay nested">
+                                <i data-lucide="file-text"></i>
+                                <span class="label">共享内存实现的原理</span>
+                            </div>
                         </div>
                     </div>
                 </div>
-            </div>
 
-            <aside class="mini-panel">
-                <h2>组合策略</h2>
-                <div class="mini-panel-row"><span>主视图</span><strong>紧凑目录</strong></div>
-                <div class="mini-panel-row"><span>层级</span><strong>当前文件夹内</strong></div>
-                <div class="mini-panel-row"><span>排序</span><strong>兄弟集合 sort_index</strong></div>
-                <div class="mini-panel-row"><span>父子关系</span><strong>hierarchy.json</strong></div>
-                <div class="mini-panel-row"><span>折叠状态</span><strong>跨重启保留</strong></div>
-                <div class="mini-panel-row"><span>非 Markdown</span><strong>置底</strong></div>
-                <div class="legend">
-                    <div class="legend-item"><span class="legend-swatch parent"></span><span>父节点目标态保持温和，不抢选中态</span></div>
-                    <div class="legend-item"><span class="legend-swatch nested"></span><span>缩进预览比说明文字更可靠</span></div>
-                </div>
-            </aside>
-        </section>
-    </main>
-</body>
+                <aside class="mini-panel">
+                    <h2>组合策略</h2>
+                    <div class="mini-panel-row"><span>主视图</span><strong>紧凑目录</strong></div>
+                    <div class="mini-panel-row"><span>层级</span><strong>当前文件夹内</strong></div>
+                    <div class="mini-panel-row"><span>排序</span><strong>兄弟集合 sort_index</strong></div>
+                    <div class="mini-panel-row"><span>父子关系</span><strong>hierarchy.json</strong></div>
+                    <div class="mini-panel-row"><span>折叠状态</span><strong>跨重启保留</strong></div>
+                    <div class="mini-panel-row"><span>非 Markdown</span><strong>置底</strong></div>
+                    <div class="legend">
+                        <div class="legend-item">
+                            <span class="legend-swatch parent"></span><span>父节点目标态保持温和，不抢选中态</span>
+                        </div>
+                        <div class="legend-item"><span class="legend-swatch nested"></span><span>缩进预览比说明文字更可靠</span></div>
+                    </div>
+                </aside>
+            </section>
+        </main>
+    </body>
 </html>
-

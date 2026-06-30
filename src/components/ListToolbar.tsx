@@ -33,12 +33,7 @@ interface ListToolbarProps {
     useFloatingLayout?: boolean;
 }
 
-export function ListToolbar({
-    isSearchActive,
-    onSearchToggle,
-    getManualSortNewFileContext,
-    useFloatingLayout = false
-}: ListToolbarProps) {
+export function ListToolbar({ isSearchActive, onSearchToggle, getManualSortNewFileContext, useFloatingLayout = false }: ListToolbarProps) {
     const uxPreferences = useUXPreferences();
     const includeDescendantNotes = uxPreferences.includeDescendantNotes;
     const selectionState = useSelectionState();

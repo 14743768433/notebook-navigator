@@ -361,7 +361,12 @@ function DraggableVirtualRow({
     children
 }: DraggableVirtualRowProps) {
     const rowId = file?.path ?? `row-${style.top}`;
-    const { attributes, listeners, setNodeRef: setDraggableNodeRef, isDragging } = useDraggable({
+    const {
+        attributes,
+        listeners,
+        setNodeRef: setDraggableNodeRef,
+        isDragging
+    } = useDraggable({
         id: rowId,
         data: { type: 'list-file', path: file?.path ?? '' },
         disabled: !canDrag
@@ -412,7 +417,9 @@ function DraggableVirtualRow({
             {...(canDrag ? attributes : {})}
             {...(canDrag ? listeners : {})}
         >
-            {showDropIndicator ? <div className={`nn-list-drop-indicator nn-list-drop-indicator-${dropState.position}`} style={indicatorStyle} /> : null}
+            {showDropIndicator ? (
+                <div className={`nn-list-drop-indicator nn-list-drop-indicator-${dropState.position}`} style={indicatorStyle} />
+            ) : null}
             {file && hasChildren ? (
                 <button
                     type="button"
@@ -1042,11 +1049,7 @@ export function ListPaneVirtualContent({
         (insertionIndex: number, activePath: string): number => {
             for (let index = insertionIndex - 1; index >= 0; index -= 1) {
                 const candidate = listItems[index];
-                if (
-                    candidate?.type === ListPaneItemType.FILE &&
-                    candidate.data instanceof TFile &&
-                    candidate.data.path !== activePath
-                ) {
+                if (candidate?.type === ListPaneItemType.FILE && candidate.data instanceof TFile && candidate.data.path !== activePath) {
                     return (candidate.depth ?? 0) + 1;
                 }
             }
@@ -1082,7 +1085,9 @@ export function ListPaneVirtualContent({
             activePath: string,
             preferredPosition: 'before' | 'after'
         ): DropAnchor | null => {
-            const isTargetSibling = (item: ListPaneItem | undefined): item is ListPaneItem & { type: typeof ListPaneItemType.FILE; data: TFile } => {
+            const isTargetSibling = (
+                item: ListPaneItem | undefined
+            ): item is ListPaneItem & { type: typeof ListPaneItemType.FILE; data: TFile } => {
                 return (
                     item?.type === ListPaneItemType.FILE &&
                     item.data instanceof TFile &&
@@ -1139,7 +1144,9 @@ export function ListPaneVirtualContent({
             const projectedDepth = activeInfo.depth + Math.round(delta.x / NOTE_TREE_INDENT_PX);
             const requestedDepth = Math.max(0, Math.min(maxDepth, projectedDepth));
             const childIntent = delta.x >= NOTE_TREE_CHILD_INTENT_THRESHOLD_PX;
-            const selectedMarkdownCount = Array.from(selectedFilePaths).filter(path => fileItemInfoByPath.get(path)?.item.data instanceof TFile).length;
+            const selectedMarkdownCount = Array.from(selectedFilePaths).filter(
+                path => fileItemInfoByPath.get(path)?.item.data instanceof TFile
+            ).length;
 
             if (childIntent) {
                 const isValid =
@@ -1189,14 +1196,7 @@ export function ListPaneVirtualContent({
                 isValid
             };
         },
-        [
-            fileItemInfoByPath,
-            getDropMaxDepth,
-            hierarchyService,
-            resolveParentForDropDepth,
-            resolveSiblingDropAnchor,
-            selectedFilePaths
-        ]
+        [fileItemInfoByPath, getDropMaxDepth, hierarchyService, resolveParentForDropDepth, resolveSiblingDropAnchor, selectedFilePaths]
     );
     const updateDropStateFromEvent = useCallback(
         (event: DragMoveEvent | DragOverEvent) => {
@@ -1228,26 +1228,23 @@ export function ListPaneVirtualContent({
         },
         [updateDropStateFromEvent]
     );
-    const handleDragEnd = useCallback(
-        () => {
-            const finalDropState = dropState ?? null;
-            setActiveDragPath(null);
-            setDropState(null);
-            dragStartPointRef.current = null;
-            if (!finalDropState?.isValid) {
-                return;
-            }
-            onDragSort?.({
-                activePath: finalDropState.activePath,
-                overPath: finalDropState.overPath,
-                position: finalDropState.position,
-                intent: finalDropState.intent,
-                parentPath: finalDropState.parentPath,
-                depth: finalDropState.depth
-            });
-        },
-        [dropState, onDragSort]
-    );
+    const handleDragEnd = useCallback(() => {
+        const finalDropState = dropState ?? null;
+        setActiveDragPath(null);
+        setDropState(null);
+        dragStartPointRef.current = null;
+        if (!finalDropState?.isValid) {
+            return;
+        }
+        onDragSort?.({
+            activePath: finalDropState.activePath,
+            overPath: finalDropState.overPath,
+            position: finalDropState.position,
+            intent: finalDropState.intent,
+            parentPath: finalDropState.parentPath,
+            depth: finalDropState.depth
+        });
+    }, [dropState, onDragSort]);
     const handleDragCancel = useCallback(() => {
         setActiveDragPath(null);
         setDropState(null);
@@ -1273,244 +1270,244 @@ export function ListPaneVirtualContent({
             onDragCancel={handleDragCancel}
         >
             <div
-            ref={scrollContainerRefCallback}
-            className={`nn-list-pane-scroller ${!isEmptySelection && !hasNoFiles && isCompactMode ? 'nn-compact-mode' : ''}`}
-            data-drop-zone={activeFolderDropPath ? 'folder' : undefined}
-            data-drop-path={activeFolderDropPath ?? undefined}
-            data-allow-internal-drop={activeFolderDropPath ? 'false' : undefined}
-            data-allow-external-drop={activeFolderDropPath ? 'true' : undefined}
-            data-pane="files"
-            role="list"
-            tabIndex={-1}
-            onMouseMove={handleListMouseMove}
-            onMouseLeave={handleListMouseLeave}
-        >
-            {stickyHeader ? (
-                <div className="nn-list-sticky-header">
-                    <ListPaneGroupHeader
-                        header={stickyHeader}
-                        collapseChevronIcons={collapseChevronIcons}
-                        pinnedSectionIcon={pinnedSectionIcon}
-                        onPinnedGroupHeaderToggle={onPinnedGroupHeaderToggle}
-                        onListGroupHeaderToggle={onListGroupHeaderToggle}
-                        onFolderGroupHeaderClick={handleFolderGroupHeaderClick}
-                        onFolderGroupHeaderMouseDown={handleFolderGroupHeaderMouseDown}
-                        onGroupHeaderContextMenu={handleGroupHeaderContextMenu}
-                    />
-                </div>
-            ) : null}
-            <div className="nn-list-pane-content">
-                {isEmptySelection ? (
-                    <div className="nn-empty-state">
-                        <div className="nn-empty-message">{strings.listPane.emptyStateNoSelection}</div>
-                    </div>
-                ) : hasNoFiles ? (
-                    <div className="nn-empty-state">
-                        <div className="nn-empty-message">{strings.listPane.emptyStateNoNotes}</div>
-                    </div>
-                ) : listItems.length > 0 ? (
-                    <div
-                        className="nn-virtual-container"
-                        style={{
-                            height: `${rowVirtualizer.getTotalSize()}px`
-                        }}
-                    >
-                        {virtualItems.map(virtualItem => {
-                            const item = getItemAt(listItems, virtualItem.index);
-                            if (!item) {
-                                return null;
-                            }
-
-                            const nextItem = getItemAt(listItems, virtualItem.index + 1);
-                            const previousItem = getItemAt(listItems, virtualItem.index - 1);
-                            const isFileRow = isFileListItem(item);
-                            const isSelected = isFileRow && isFileVisuallySelected(item.data);
-                            const isPreviousFileSelected = isFileListItem(previousItem) && isFileVisuallySelected(previousItem.data);
-                            const isNextFileSelected = isFileListItem(nextItem) && isFileVisuallySelected(nextItem.data);
-                            const hasCustomBackground = hasFileCustomBackground(item);
-                            const previousHasCustomBackground = isFileRow && hasFileCustomBackground(previousItem);
-                            const nextHasCustomBackground = isFileRow && hasFileCustomBackground(nextItem);
-                            const hasPreviousCustomBackground = hasCustomBackground && previousHasCustomBackground;
-                            const hasNextCustomBackground = isFileRow && nextHasCustomBackground;
-                            const hasFilledBackground = isFileRow && (isSelected || hasCustomBackground);
-                            const hasPreviousFilledBackground =
-                                hasFilledBackground &&
-                                isFileListItem(previousItem) &&
-                                (isPreviousFileSelected || previousHasCustomBackground);
-                            const hasNextFilledBackground =
-                                hasFilledBackground && isFileListItem(nextItem) && (isNextFileSelected || nextHasCustomBackground);
-                            const isLastFile =
-                                isFileRow &&
-                                (virtualItem.index === listItems.length - 1 ||
-                                    (nextItem &&
-                                        (nextItem.type === ListPaneItemType.HEADER ||
-                                            nextItem.type === ListPaneItemType.HEADER_SPACER ||
-                                            nextItem.type === ListPaneItemType.TOP_SPACER ||
-                                            nextItem.type === ListPaneItemType.BOTTOM_SPACER)));
-
-                            const hasSelectedAbove = isFileRow && isPreviousFileSelected;
-                            const hasSelectedBelow = isFileRow && isNextFileSelected;
-
-                            const groupHeaderLabel =
-                                item.type === ListPaneItemType.FILE ? (dateGroupLabelByIndex[virtualItem.index] ?? null) : null;
-                            const shortcutKey =
-                                item.type === ListPaneItemType.FILE && item.data instanceof TFile
-                                    ? noteShortcutKeysByPath.get(item.data.path)
-                                    : undefined;
-                            const isInlineRenaming =
-                                item.type === ListPaneItemType.FILE &&
-                                item.data instanceof TFile &&
-                                item.data.path === inlineRenameFilePath;
-
-                            const headerModel = headerModelByIndex.get(virtualItem.index) ?? null;
-                            const firstFileAfterHeader = headerModel ? getFirstFileAfterHeader(listItems, virtualItem.index) : null;
-                            const shouldHideHeaderSeparatorForGroup =
-                                shouldHideCollapsedHeaderSeparator(headerModel) || shouldHideManualSortGoalHeaderSeparator(headerModel);
-                            const hideFileSeparator =
-                                item.type === ListPaneItemType.FILE &&
-                                ((isSelected && !hasSelectedBelow) || (!isSelected && isNextFileSelected));
-                            const hideHeaderSeparator = firstFileAfterHeader !== null && isFileVisuallySelected(firstFileAfterHeader);
-                            const hideSeparator = hideFileSeparator || hideHeaderSeparator;
-
-                            const virtualItemStyle: VirtualRowStyle = {
-                                top: Math.max(0, virtualItem.start),
-                                '--item-height': `${virtualItem.size}px`
-                            };
-                            const virtualItemClasses = ['nn-virtual-item'];
-                            if (item.type === ListPaneItemType.FILE) {
-                                virtualItemClasses.push('nn-virtual-file-item');
-                                if (
-                                    item.depth !== undefined ||
-                                    item.hasChildren !== undefined ||
-                                    item.hierarchyParentPath !== undefined
-                                ) {
-                                    virtualItemClasses.push('nn-note-tree-row');
-                                }
-                            }
-                            if (headerModel) {
-                                virtualItemClasses.push('nn-virtual-list-group-header');
-                            }
-                            if (shouldHideHeaderSeparatorForGroup) {
-                                virtualItemClasses.push('nn-hide-list-group-header-separator');
-                            }
-                            if (isLastFile) {
-                                virtualItemClasses.push('nn-last-file');
-                            }
-                            if (hideSeparator) {
-                                virtualItemClasses.push('nn-hide-separator-selection');
-                            }
-                            if (hasFilledBackground) {
-                                virtualItemClasses.push('nn-virtual-file-item-has-filled-background');
-                            }
-                            if (hasPreviousFilledBackground) {
-                                virtualItemClasses.push('nn-virtual-file-item-has-filled-background-previous');
-                            }
-                            if (hasNextFilledBackground) {
-                                virtualItemClasses.push('nn-virtual-file-item-has-filled-background-next');
-                            }
-                            if (hasCustomBackground) {
-                                virtualItemClasses.push('nn-virtual-file-item-has-custom-background');
-                            }
-                            if (hasPreviousCustomBackground) {
-                                virtualItemClasses.push('nn-virtual-file-item-has-custom-background-previous');
-                            }
-                            if (hasNextCustomBackground) {
-                                virtualItemClasses.push('nn-virtual-file-item-has-custom-background-next');
-                            }
-                            const rowFile = item.type === ListPaneItemType.FILE && item.data instanceof TFile ? item.data : null;
-                            const canDragRow = Boolean(
-                                enableDragSort && rowFile && rowFile.extension === 'md' && !item.isPinned && !isInlineRenaming
-                            );
-                            const noteTreeNodeKey = rowFile ? `${selectedFolderPath ?? ''}\u0001${rowFile.path}` : null;
-
-                            return (
-                                <DraggableVirtualRow
-                                    key={virtualItem.key}
-                                    file={rowFile}
-                                    canDrag={canDragRow}
-                                    className={virtualItemClasses.join(' ')}
-                                    style={virtualItemStyle}
-                                    index={virtualItem.index}
-                                    depth={item.type === ListPaneItemType.FILE ? (item.depth ?? 0) : 0}
-                                    hasChildren={item.type === ListPaneItemType.FILE && item.hasChildren === true}
-                                    isExpanded={item.type === ListPaneItemType.FILE && item.isExpanded === true}
-                                    treeNodeKey={noteTreeNodeKey}
-                                    dropState={dropState}
-                                    onNoteTreeToggle={onNoteTreeToggle}
-                                >
-                                    {headerModel ? (
-                                        <ListPaneGroupHeader
-                                            header={headerModel}
-                                            collapseChevronIcons={collapseChevronIcons}
-                                            pinnedSectionIcon={pinnedSectionIcon}
-                                            onPinnedGroupHeaderToggle={onPinnedGroupHeaderToggle}
-                                            onListGroupHeaderToggle={onListGroupHeaderToggle}
-                                            onFolderGroupHeaderClick={handleFolderGroupHeaderClick}
-                                            onFolderGroupHeaderMouseDown={handleFolderGroupHeaderMouseDown}
-                                            onGroupHeaderContextMenu={handleGroupHeaderContextMenu}
-                                        />
-                                    ) : item.type === ListPaneItemType.HEADER_SPACER ? (
-                                        <div className="nn-list-group-header-spacer" />
-                                    ) : item.type === ListPaneItemType.TOP_SPACER ? (
-                                        <div className="nn-list-top-spacer" style={{ height: `${topSpacerHeight}px` }} />
-                                    ) : item.type === ListPaneItemType.BOTTOM_SPACER ? (
-                                        <div className="nn-list-bottom-spacer" />
-                                    ) : item.type === ListPaneItemType.FILE && item.data instanceof TFile ? (
-                                        <FileItem
-                                            key={item.key}
-                                            file={item.data}
-                                            isSelected={isSelected}
-                                            hasSelectedAbove={hasSelectedAbove}
-                                            hasSelectedBelow={hasSelectedBelow}
-                                            showQuickActionsPanel={
-                                                !isInlineRenaming && !suppressRowHover && hoveredFilePath === item.data.path
-                                            }
-                                            onFileClick={onFileClick}
-                                            fileIndex={item.fileIndex}
-                                            selectionType={selectionType}
-                                            groupHeaderLabel={groupHeaderLabel}
-                                            sortOption={sortOption}
-                                            parentFolder={item.parentFolder}
-                                            isPinned={item.isPinned}
-                                            searchQuery={searchHighlightQuery}
-                                            searchMeta={item.searchMeta}
-                                            isHidden={Boolean(item.isHidden)}
-                                            onModifySearchWithTag={onModifySearchWithTag}
-                                            onModifySearchWithProperty={onModifySearchWithProperty}
-                                            localDayReference={localDayReference}
-                                            fileIconSize={fileIconSize}
-                                            appearanceSettings={appearanceSettings}
-                                            includeDescendantNotes={includeDescendantNotes}
-                                            hiddenTagVisibility={hiddenTagVisibility}
-                                            fileNameIconNeedles={fileNameIconNeedles}
-                                            visiblePropertyKeys={visibleListPropertyKeys}
-                                            visibleNavigationPropertyKeys={visibleNavigationPropertyKeys}
-                                            fileItemStorage={fileItemStorage}
-                                            shortcutKey={shortcutKey}
-                                            onToggleNoteShortcut={onToggleNoteShortcut}
-                                            folderDecorationModel={folderDecorationModel}
-                                            fileItemPillDecorationModel={fileItemPillDecorationModel}
-                                            fileItemPillOrderModel={fileItemPillOrderModel}
-                                            getSolidBackground={getSolidBackground}
-                                            disableNativeDrag={enableDragSort}
-                                            manualSortDisabled={enableDragSort && item.data.extension !== 'md'}
-                                            inlineRename={
-                                                isInlineRenaming
-                                                    ? {
-                                                          onCommit: onFileRenameCommit,
-                                                          onCancel: onFileRenameCancel,
-                                                          onRestoreFocus: onFileRenameRestoreFocus
-                                                      }
-                                                    : undefined
-                                            }
-                                        />
-                                    ) : null}
-                                </DraggableVirtualRow>
-                            );
-                        })}
+                ref={scrollContainerRefCallback}
+                className={`nn-list-pane-scroller ${!isEmptySelection && !hasNoFiles && isCompactMode ? 'nn-compact-mode' : ''}`}
+                data-drop-zone={activeFolderDropPath ? 'folder' : undefined}
+                data-drop-path={activeFolderDropPath ?? undefined}
+                data-allow-internal-drop={activeFolderDropPath ? 'false' : undefined}
+                data-allow-external-drop={activeFolderDropPath ? 'true' : undefined}
+                data-pane="files"
+                role="list"
+                tabIndex={-1}
+                onMouseMove={handleListMouseMove}
+                onMouseLeave={handleListMouseLeave}
+            >
+                {stickyHeader ? (
+                    <div className="nn-list-sticky-header">
+                        <ListPaneGroupHeader
+                            header={stickyHeader}
+                            collapseChevronIcons={collapseChevronIcons}
+                            pinnedSectionIcon={pinnedSectionIcon}
+                            onPinnedGroupHeaderToggle={onPinnedGroupHeaderToggle}
+                            onListGroupHeaderToggle={onListGroupHeaderToggle}
+                            onFolderGroupHeaderClick={handleFolderGroupHeaderClick}
+                            onFolderGroupHeaderMouseDown={handleFolderGroupHeaderMouseDown}
+                            onGroupHeaderContextMenu={handleGroupHeaderContextMenu}
+                        />
                     </div>
                 ) : null}
-            </div>
+                <div className="nn-list-pane-content">
+                    {isEmptySelection ? (
+                        <div className="nn-empty-state">
+                            <div className="nn-empty-message">{strings.listPane.emptyStateNoSelection}</div>
+                        </div>
+                    ) : hasNoFiles ? (
+                        <div className="nn-empty-state">
+                            <div className="nn-empty-message">{strings.listPane.emptyStateNoNotes}</div>
+                        </div>
+                    ) : listItems.length > 0 ? (
+                        <div
+                            className="nn-virtual-container"
+                            style={{
+                                height: `${rowVirtualizer.getTotalSize()}px`
+                            }}
+                        >
+                            {virtualItems.map(virtualItem => {
+                                const item = getItemAt(listItems, virtualItem.index);
+                                if (!item) {
+                                    return null;
+                                }
+
+                                const nextItem = getItemAt(listItems, virtualItem.index + 1);
+                                const previousItem = getItemAt(listItems, virtualItem.index - 1);
+                                const isFileRow = isFileListItem(item);
+                                const isSelected = isFileRow && isFileVisuallySelected(item.data);
+                                const isPreviousFileSelected = isFileListItem(previousItem) && isFileVisuallySelected(previousItem.data);
+                                const isNextFileSelected = isFileListItem(nextItem) && isFileVisuallySelected(nextItem.data);
+                                const hasCustomBackground = hasFileCustomBackground(item);
+                                const previousHasCustomBackground = isFileRow && hasFileCustomBackground(previousItem);
+                                const nextHasCustomBackground = isFileRow && hasFileCustomBackground(nextItem);
+                                const hasPreviousCustomBackground = hasCustomBackground && previousHasCustomBackground;
+                                const hasNextCustomBackground = isFileRow && nextHasCustomBackground;
+                                const hasFilledBackground = isFileRow && (isSelected || hasCustomBackground);
+                                const hasPreviousFilledBackground =
+                                    hasFilledBackground &&
+                                    isFileListItem(previousItem) &&
+                                    (isPreviousFileSelected || previousHasCustomBackground);
+                                const hasNextFilledBackground =
+                                    hasFilledBackground && isFileListItem(nextItem) && (isNextFileSelected || nextHasCustomBackground);
+                                const isLastFile =
+                                    isFileRow &&
+                                    (virtualItem.index === listItems.length - 1 ||
+                                        (nextItem &&
+                                            (nextItem.type === ListPaneItemType.HEADER ||
+                                                nextItem.type === ListPaneItemType.HEADER_SPACER ||
+                                                nextItem.type === ListPaneItemType.TOP_SPACER ||
+                                                nextItem.type === ListPaneItemType.BOTTOM_SPACER)));
+
+                                const hasSelectedAbove = isFileRow && isPreviousFileSelected;
+                                const hasSelectedBelow = isFileRow && isNextFileSelected;
+
+                                const groupHeaderLabel =
+                                    item.type === ListPaneItemType.FILE ? (dateGroupLabelByIndex[virtualItem.index] ?? null) : null;
+                                const shortcutKey =
+                                    item.type === ListPaneItemType.FILE && item.data instanceof TFile
+                                        ? noteShortcutKeysByPath.get(item.data.path)
+                                        : undefined;
+                                const isInlineRenaming =
+                                    item.type === ListPaneItemType.FILE &&
+                                    item.data instanceof TFile &&
+                                    item.data.path === inlineRenameFilePath;
+
+                                const headerModel = headerModelByIndex.get(virtualItem.index) ?? null;
+                                const firstFileAfterHeader = headerModel ? getFirstFileAfterHeader(listItems, virtualItem.index) : null;
+                                const shouldHideHeaderSeparatorForGroup =
+                                    shouldHideCollapsedHeaderSeparator(headerModel) || shouldHideManualSortGoalHeaderSeparator(headerModel);
+                                const hideFileSeparator =
+                                    item.type === ListPaneItemType.FILE &&
+                                    ((isSelected && !hasSelectedBelow) || (!isSelected && isNextFileSelected));
+                                const hideHeaderSeparator = firstFileAfterHeader !== null && isFileVisuallySelected(firstFileAfterHeader);
+                                const hideSeparator = hideFileSeparator || hideHeaderSeparator;
+
+                                const virtualItemStyle: VirtualRowStyle = {
+                                    top: Math.max(0, virtualItem.start),
+                                    '--item-height': `${virtualItem.size}px`
+                                };
+                                const virtualItemClasses = ['nn-virtual-item'];
+                                if (item.type === ListPaneItemType.FILE) {
+                                    virtualItemClasses.push('nn-virtual-file-item');
+                                    if (
+                                        item.depth !== undefined ||
+                                        item.hasChildren !== undefined ||
+                                        item.hierarchyParentPath !== undefined
+                                    ) {
+                                        virtualItemClasses.push('nn-note-tree-row');
+                                    }
+                                }
+                                if (headerModel) {
+                                    virtualItemClasses.push('nn-virtual-list-group-header');
+                                }
+                                if (shouldHideHeaderSeparatorForGroup) {
+                                    virtualItemClasses.push('nn-hide-list-group-header-separator');
+                                }
+                                if (isLastFile) {
+                                    virtualItemClasses.push('nn-last-file');
+                                }
+                                if (hideSeparator) {
+                                    virtualItemClasses.push('nn-hide-separator-selection');
+                                }
+                                if (hasFilledBackground) {
+                                    virtualItemClasses.push('nn-virtual-file-item-has-filled-background');
+                                }
+                                if (hasPreviousFilledBackground) {
+                                    virtualItemClasses.push('nn-virtual-file-item-has-filled-background-previous');
+                                }
+                                if (hasNextFilledBackground) {
+                                    virtualItemClasses.push('nn-virtual-file-item-has-filled-background-next');
+                                }
+                                if (hasCustomBackground) {
+                                    virtualItemClasses.push('nn-virtual-file-item-has-custom-background');
+                                }
+                                if (hasPreviousCustomBackground) {
+                                    virtualItemClasses.push('nn-virtual-file-item-has-custom-background-previous');
+                                }
+                                if (hasNextCustomBackground) {
+                                    virtualItemClasses.push('nn-virtual-file-item-has-custom-background-next');
+                                }
+                                const rowFile = item.type === ListPaneItemType.FILE && item.data instanceof TFile ? item.data : null;
+                                const canDragRow = Boolean(
+                                    enableDragSort && rowFile && rowFile.extension === 'md' && !item.isPinned && !isInlineRenaming
+                                );
+                                const noteTreeNodeKey = rowFile ? `${selectedFolderPath ?? ''}\u0001${rowFile.path}` : null;
+
+                                return (
+                                    <DraggableVirtualRow
+                                        key={virtualItem.key}
+                                        file={rowFile}
+                                        canDrag={canDragRow}
+                                        className={virtualItemClasses.join(' ')}
+                                        style={virtualItemStyle}
+                                        index={virtualItem.index}
+                                        depth={item.type === ListPaneItemType.FILE ? (item.depth ?? 0) : 0}
+                                        hasChildren={item.type === ListPaneItemType.FILE && item.hasChildren === true}
+                                        isExpanded={item.type === ListPaneItemType.FILE && item.isExpanded === true}
+                                        treeNodeKey={noteTreeNodeKey}
+                                        dropState={dropState}
+                                        onNoteTreeToggle={onNoteTreeToggle}
+                                    >
+                                        {headerModel ? (
+                                            <ListPaneGroupHeader
+                                                header={headerModel}
+                                                collapseChevronIcons={collapseChevronIcons}
+                                                pinnedSectionIcon={pinnedSectionIcon}
+                                                onPinnedGroupHeaderToggle={onPinnedGroupHeaderToggle}
+                                                onListGroupHeaderToggle={onListGroupHeaderToggle}
+                                                onFolderGroupHeaderClick={handleFolderGroupHeaderClick}
+                                                onFolderGroupHeaderMouseDown={handleFolderGroupHeaderMouseDown}
+                                                onGroupHeaderContextMenu={handleGroupHeaderContextMenu}
+                                            />
+                                        ) : item.type === ListPaneItemType.HEADER_SPACER ? (
+                                            <div className="nn-list-group-header-spacer" />
+                                        ) : item.type === ListPaneItemType.TOP_SPACER ? (
+                                            <div className="nn-list-top-spacer" style={{ height: `${topSpacerHeight}px` }} />
+                                        ) : item.type === ListPaneItemType.BOTTOM_SPACER ? (
+                                            <div className="nn-list-bottom-spacer" />
+                                        ) : item.type === ListPaneItemType.FILE && item.data instanceof TFile ? (
+                                            <FileItem
+                                                key={item.key}
+                                                file={item.data}
+                                                isSelected={isSelected}
+                                                hasSelectedAbove={hasSelectedAbove}
+                                                hasSelectedBelow={hasSelectedBelow}
+                                                showQuickActionsPanel={
+                                                    !isInlineRenaming && !suppressRowHover && hoveredFilePath === item.data.path
+                                                }
+                                                onFileClick={onFileClick}
+                                                fileIndex={item.fileIndex}
+                                                selectionType={selectionType}
+                                                groupHeaderLabel={groupHeaderLabel}
+                                                sortOption={sortOption}
+                                                parentFolder={item.parentFolder}
+                                                isPinned={item.isPinned}
+                                                searchQuery={searchHighlightQuery}
+                                                searchMeta={item.searchMeta}
+                                                isHidden={Boolean(item.isHidden)}
+                                                onModifySearchWithTag={onModifySearchWithTag}
+                                                onModifySearchWithProperty={onModifySearchWithProperty}
+                                                localDayReference={localDayReference}
+                                                fileIconSize={fileIconSize}
+                                                appearanceSettings={appearanceSettings}
+                                                includeDescendantNotes={includeDescendantNotes}
+                                                hiddenTagVisibility={hiddenTagVisibility}
+                                                fileNameIconNeedles={fileNameIconNeedles}
+                                                visiblePropertyKeys={visibleListPropertyKeys}
+                                                visibleNavigationPropertyKeys={visibleNavigationPropertyKeys}
+                                                fileItemStorage={fileItemStorage}
+                                                shortcutKey={shortcutKey}
+                                                onToggleNoteShortcut={onToggleNoteShortcut}
+                                                folderDecorationModel={folderDecorationModel}
+                                                fileItemPillDecorationModel={fileItemPillDecorationModel}
+                                                fileItemPillOrderModel={fileItemPillOrderModel}
+                                                getSolidBackground={getSolidBackground}
+                                                disableNativeDrag={enableDragSort}
+                                                manualSortDisabled={enableDragSort && item.data.extension !== 'md'}
+                                                inlineRename={
+                                                    isInlineRenaming
+                                                        ? {
+                                                              onCommit: onFileRenameCommit,
+                                                              onCancel: onFileRenameCancel,
+                                                              onRestoreFocus: onFileRenameRestoreFocus
+                                                          }
+                                                        : undefined
+                                                }
+                                            />
+                                        ) : null}
+                                    </DraggableVirtualRow>
+                                );
+                            })}
+                        </div>
+                    ) : null}
+                </div>
             </div>
             <DragOverlay adjustScale={false} dropAnimation={null} modifiers={[snapDragOverlayCenterToPointer]}>
                 {activeDragFile instanceof TFile ? (

@@ -19,4 +19,3 @@ function initPrototype() {
 }
 
 window.addEventListener('DOMContentLoaded', initPrototype);
-
