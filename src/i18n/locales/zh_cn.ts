@@ -165,6 +165,18 @@ export const STRINGS_ZH_CN = {
         showFilesFromDescendants: '显示后代的文件',
         search: '搜索' // Tooltip for search button (English: Search)
     },
+    sequentialReading: {
+        viewName: '顺序阅读',
+        openFolder: '顺序阅读当前文件夹',
+        closeFolder: '关闭顺序阅读',
+        emptyFolder: '当前文件夹没有 Markdown 笔记。',
+        missingFolder: '文件夹不存在。',
+        sectionReadFailed: '读取这篇笔记失败。',
+        editorUnavailable: '顺序阅读编辑器不可用，当前显示只读预览。',
+        saving: '保存中...',
+        saved: '已保存',
+        saveFailed: '保存失败'
+    },
     // Search input
     searchInput: {
         placeholder: '搜索...', // Placeholder text for search input (English: Search...)

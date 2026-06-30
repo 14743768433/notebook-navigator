@@ -48,6 +48,8 @@ interface ListPaneHeaderProps {
     showIcon: boolean;
 }
 
+let sequentialReadingHeaderListenerCounter = 0;
+
 export function ListPaneHeader({
     onHeaderClick,
     isSearchActive,
@@ -59,6 +61,11 @@ export function ListPaneHeader({
     showIcon
 }: ListPaneHeaderProps) {
     const iconRef = React.useRef<HTMLSpanElement | null>(null);
+    const sequentialReadingListenerIdRef = React.useRef<string | null>(null);
+    if (!sequentialReadingListenerIdRef.current) {
+        sequentialReadingHeaderListenerCounter += 1;
+        sequentialReadingListenerIdRef.current = `list-pane-header-sequential-reading-${sequentialReadingHeaderListenerCounter}`;
+    }
     const { app, isMobile, plugin } = useServices();
     const commandQueue = useCommandQueue();
     const settings = useSettingsState();
@@ -98,6 +105,14 @@ export function ListPaneHeader({
     const showAppearanceButton = listToolbarVisibility.appearance;
     const showNewNoteButton = listToolbarVisibility.newNote;
     const hasNavigationSelection = Boolean(selectionState.selectedFolder || selectionState.selectedTag || selectionState.selectedProperty);
+    const selectedFolder = selectionState.selectionType === ItemType.FOLDER ? selectionState.selectedFolder : null;
+    const showSequentialReadingButton = Boolean(selectedFolder);
+    const [sequentialReadingStateVersion, setSequentialReadingStateVersion] = React.useState(0);
+    const isSequentialReadingActive = useMemo(() => {
+        void sequentialReadingStateVersion;
+        return selectedFolder !== null && plugin.isSequentialReadingOpenForFolder(selectedFolder.path);
+    }, [plugin, selectedFolder, sequentialReadingStateVersion]);
+    const canToggleSequentialReading = selectedFolder !== null && (!isSearchActive || isSequentialReadingActive);
 
     const shouldRenderBreadcrumbSegments = isMobile;
     const shouldShowHeaderTitle = !isMobile && listPaneTitlePreference === 'header';
@@ -107,6 +122,7 @@ export function ListPaneHeader({
         shouldShowHeaderTitle ||
         showSearchButton ||
         showRevealButton ||
+        showSequentialReadingButton ||
         showDescendantsButton ||
         showSortButton ||
         showAppearanceButton ||
@@ -120,8 +136,37 @@ export function ListPaneHeader({
         return getSortIcon();
     }, [getSortIcon]);
 
+    useEffect(() => {
+        const listenerId = sequentialReadingListenerIdRef.current;
+        if (!listenerId) {
+            return;
+        }
+
+        plugin.registerSequentialReadingStateListener(listenerId, () => {
+            setSequentialReadingStateVersion(version => version + 1);
+        });
+
+        return () => {
+            plugin.unregisterSequentialReadingStateListener(listenerId);
+        };
+    }, [plugin]);
+
+    const handleToggleSequentialReading = React.useCallback(() => {
+        if (!selectedFolder) {
+            return;
+        }
+
+        if (isSequentialReadingActive) {
+            plugin.closeSequentialReading(selectedFolder.path);
+            return;
+        }
+        if (isSearchActive) {
+            return;
+        }
+        runAsyncAction(() => plugin.openSequentialReading(selectedFolder.path));
+    }, [isSearchActive, isSequentialReadingActive, plugin, selectedFolder]);
+
     // Folder note interactions only apply when a folder is the active selection.
-    const selectedFolder = selectionState.selectionType === ItemType.FOLDER ? selectionState.selectedFolder : null;
     // Folder note lookup is only needed when the title/breadcrumb is rendered.
     const shouldResolveSelectedFolderNote = shouldRenderBreadcrumbSegments || shouldShowHeaderTitle;
     // Tracks direct child file changes so folder note lookup recalculates when names move.
@@ -413,6 +458,22 @@ export function ListPaneHeader({
                             tabIndex={-1}
                         >
                             <ServiceIcon iconId={resolveUXIcon(settings.interfaceIcons, 'list-reveal-file')} />
+                        </button>
+                    ) : null}
+                    {showSequentialReadingButton ? (
+                        <button
+                            className={`nn-icon-button ${isSequentialReadingActive ? 'nn-icon-button-active' : ''}`}
+                            aria-label={
+                                isSequentialReadingActive
+                                    ? (strings.sequentialReading?.closeFolder ?? 'Close sequential reading')
+                                    : (strings.sequentialReading?.openFolder ?? 'Sequential reading')
+                            }
+                            aria-pressed={isSequentialReadingActive}
+                            onClick={handleToggleSequentialReading}
+                            disabled={!canToggleSequentialReading}
+                            tabIndex={-1}
+                        >
+                            <ServiceIcon iconId="book-open" />
                         </button>
                     ) : null}
                     {showDescendantsButton ? (

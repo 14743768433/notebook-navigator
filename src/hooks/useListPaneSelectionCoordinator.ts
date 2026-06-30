@@ -40,12 +40,14 @@ import { isCmdCtrlModifierPressed, isMultiSelectModifierPressed } from '../utils
 import { openFileInContext } from '../utils/openFileInContext';
 import { getAdjacentFile } from '../utils/selectionUtils';
 import type { Align } from '../types/scroll';
+import { ItemType } from '../types';
 
 export interface SelectFileOptions {
     markKeyboardNavigation?: boolean;
     markUserSelection?: boolean;
     debounceOpen?: boolean;
     suppressOpen?: boolean;
+    allowSequentialReadingReveal?: boolean;
 }
 
 export interface EnsureSelectionOptions {
@@ -107,7 +109,7 @@ export function useListPaneSelectionCoordinator({
     filePathToIndex,
     scrollToIndexSafely
 }: UseListPaneSelectionCoordinatorParams): UseListPaneSelectionCoordinatorResult {
-    const { app, commandQueue, isMobile } = useServices();
+    const { app, commandQueue, isMobile, plugin } = useServices();
     const openFileInWorkspace = useFileOpener();
     const selectionState = useSelectionState();
     const selectionDispatch = useSelectionDispatch();
@@ -161,6 +163,17 @@ export function useListPaneSelectionCoordinator({
         debouncedOpenFileInWorkspace.cancel();
     }, [debouncedOpenFileInWorkspace]);
 
+    const tryRevealSequentialReading = useCallback(
+        (file: TFile): boolean => {
+            if (isSearchActive || file.extension !== 'md' || selectionState.selectionType !== ItemType.FOLDER || !selectionState.selectedFolder) {
+                return false;
+            }
+
+            return plugin.revealSequentialReadingFile(selectionState.selectedFolder.path, file.path);
+        },
+        [isSearchActive, plugin, selectionState.selectedFolder, selectionState.selectionType]
+    );
+
     const selectFileFromList = useCallback(
         (file: TFile, options?: SelectFileOptions) => {
             isUserSelectionRef.current = options?.markUserSelection ?? false;
@@ -185,9 +198,12 @@ export function useListPaneSelectionCoordinator({
             }
 
             clearPendingKeyboardOpen();
+            if (options?.allowSequentialReadingReveal && tryRevealSequentialReading(file)) {
+                return;
+            }
             openFileInWorkspace(file);
         },
-        [clearPendingKeyboardOpen, debouncedOpenFileInWorkspace, openFileInWorkspace, selectionDispatch]
+        [clearPendingKeyboardOpen, debouncedOpenFileInWorkspace, openFileInWorkspace, selectionDispatch, tryRevealSequentialReading]
     );
 
     const scheduleKeyboardOpen = useCallback(
@@ -434,6 +450,7 @@ export function useListPaneSelectionCoordinator({
             } else {
                 selectFileFromList(file, {
                     markUserSelection: true,
+                    allowSequentialReadingReveal: true,
                     suppressOpen: shouldOpenInNewTab
                 });
             }

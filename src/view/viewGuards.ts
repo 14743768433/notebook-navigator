@@ -18,6 +18,7 @@
 
 import type { NotebookNavigatorCalendarView } from './NotebookNavigatorCalendarView';
 import type { NotebookNavigatorView } from './NotebookNavigatorView';
+import type { SequentialReadingView } from './SequentialReadingView';
 
 function hasFunctionProperty<TName extends string>(
     value: unknown,
@@ -37,4 +38,13 @@ export function isNotebookNavigatorView(value: unknown): value is NotebookNaviga
 
 export function isNotebookNavigatorCalendarView(value: unknown): value is NotebookNavigatorCalendarView {
     return hasFunctionProperty(value, 'stopContentProcessing');
+}
+
+export function isSequentialReadingView(value: unknown): value is SequentialReadingView {
+    return (
+        hasFunctionProperty(value, 'getSequentialReadingFolderPath') &&
+        hasFunctionProperty(value, 'containsFile') &&
+        hasFunctionProperty(value, 'revealFile') &&
+        hasFunctionProperty(value, 'setSequentialReadingState')
+    );
 }

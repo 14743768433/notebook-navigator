@@ -43,6 +43,12 @@ export const NOTEBOOK_NAVIGATOR_CALENDAR_VIEW = 'notebook-navigator-calendar';
 export const NOTEBOOK_NAVIGATOR_FOLDER_NOTE_SIDEBAR_VIEW = 'notebook-navigator-folder-note-sidebar';
 
 /**
+ * Unique identifier for the sequential reading view type.
+ * Used by Obsidian to render an editable, folder-scoped stitched Markdown tab.
+ */
+export const NOTEBOOK_NAVIGATOR_SEQUENTIAL_READING_VIEW = 'notebook-navigator-sequential-reading';
+
+/**
  * Virtual tag collection id for notes without tags.
  * Stored in tag selection state and used as a tag filter token.
  */

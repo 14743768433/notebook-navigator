@@ -27,6 +27,7 @@ import type { STRINGS_EN } from './locales/en';
 
 // Type for the translation strings structure
 type TranslationStrings = typeof STRINGS_EN;
+type LocaleStrings = Partial<TranslationStrings>;
 
 // Supported Obsidian languages with Notebook Navigator translations.
 //
@@ -96,7 +97,7 @@ function getEnglishStrings(): TranslationStrings {
     return englishStrings;
 }
 
-function loadLocaleOverrides(locale: string): TranslationStrings | undefined {
+function loadLocaleOverrides(locale: string): LocaleStrings | undefined {
     switch (locale) {
         case 'ar':
             return (require('./locales/ar.ts') as typeof import('./locales/ar')).STRINGS_AR;
@@ -150,6 +151,22 @@ function loadLocaleOverrides(locale: string): TranslationStrings | undefined {
 
 const resolvedLanguageCache = new Map<string, TranslationStrings>();
 
+function mergeWithEnglishFallback(localeStrings: LocaleStrings): TranslationStrings {
+    const english = getEnglishStrings();
+    return {
+        ...english,
+        ...localeStrings,
+        paneHeader: {
+            ...english.paneHeader,
+            ...localeStrings.paneHeader
+        },
+        sequentialReading: {
+            ...english.sequentialReading,
+            ...localeStrings.sequentialReading
+        }
+    } as TranslationStrings;
+}
+
 function getResolvedStrings(locale: string): TranslationStrings {
     if (locale === 'en') {
         return getEnglishStrings();
@@ -162,7 +179,7 @@ function getResolvedStrings(locale: string): TranslationStrings {
 
     const loadedLocale = loadLocaleOverrides(locale);
     if (loadedLocale) {
-        const resolved = loadedLocale as TranslationStrings;
+        const resolved = mergeWithEnglishFallback(loadedLocale);
         resolvedLanguageCache.set(locale, resolved);
         return resolved;
     }

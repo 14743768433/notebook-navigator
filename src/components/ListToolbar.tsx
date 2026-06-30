@@ -16,7 +16,9 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSelectionState } from '../context/SelectionContext';
+import { useServices } from '../context/ServicesContext';
 import { useSettingsState } from '../context/SettingsContext';
 import { useUXPreferences } from '../context/UXPreferencesContext';
 import { strings } from '../i18n';
@@ -25,6 +27,7 @@ import { useListActions } from '../hooks/useListActions';
 import { runAsyncAction } from '../utils/async';
 import { resolveUXIcon } from '../utils/uxIcons';
 import type { ManualSortNewFilePlacementContext } from '../utils/manualSort';
+import { ItemType } from '../types';
 
 interface ListToolbarProps {
     isSearchActive?: boolean;
@@ -33,10 +36,18 @@ interface ListToolbarProps {
     useFloatingLayout?: boolean;
 }
 
+let sequentialReadingToolbarListenerCounter = 0;
+
 export function ListToolbar({ isSearchActive, onSearchToggle, getManualSortNewFileContext, useFloatingLayout = false }: ListToolbarProps) {
+    const sequentialReadingListenerIdRef = useRef<string | null>(null);
+    if (!sequentialReadingListenerIdRef.current) {
+        sequentialReadingToolbarListenerCounter += 1;
+        sequentialReadingListenerIdRef.current = `list-toolbar-sequential-reading-${sequentialReadingToolbarListenerCounter}`;
+    }
     const uxPreferences = useUXPreferences();
     const includeDescendantNotes = uxPreferences.includeDescendantNotes;
     const selectionState = useSelectionState();
+    const { plugin } = useServices();
     const settings = useSettingsState();
     const listVisibility = settings.toolbarVisibility.list;
     const showRevealButton = listVisibility.reveal;
@@ -63,10 +74,38 @@ export function ListToolbar({ isSearchActive, onSearchToggle, getManualSortNewFi
     const showAppearanceButton = listVisibility.appearance;
     const showNewNoteButton = listVisibility.newNote;
     const hasNavigationSelection = Boolean(selectionState.selectedFolder || selectionState.selectedTag || selectionState.selectedProperty);
+    const selectedFolder = selectionState.selectionType === ItemType.FOLDER ? selectionState.selectedFolder : null;
+    const showSequentialReadingButton = Boolean(selectedFolder);
+    const [sequentialReadingStateVersion, setSequentialReadingStateVersion] = useState(0);
+    const isSequentialReadingActive = useMemo(() => {
+        void sequentialReadingStateVersion;
+        return selectedFolder !== null && plugin.isSequentialReadingOpenForFolder(selectedFolder.path);
+    }, [plugin, selectedFolder, sequentialReadingStateVersion]);
+    const canToggleSequentialReading = selectedFolder !== null && (!isSearchActive || isSequentialReadingActive);
 
-    const leftButtonCount = [showSearchButton, showRevealButton, showDescendantsButton, showSortButton, showAppearanceButton].filter(
-        Boolean
-    ).length;
+    useEffect(() => {
+        const listenerId = sequentialReadingListenerIdRef.current;
+        if (!listenerId) {
+            return;
+        }
+
+        plugin.registerSequentialReadingStateListener(listenerId, () => {
+            setSequentialReadingStateVersion(version => version + 1);
+        });
+
+        return () => {
+            plugin.unregisterSequentialReadingStateListener(listenerId);
+        };
+    }, [plugin]);
+
+    const leftButtonCount = [
+        showSearchButton,
+        showRevealButton,
+        showSequentialReadingButton,
+        showDescendantsButton,
+        showSortButton,
+        showAppearanceButton
+    ].filter(Boolean).length;
     const totalButtonCount = leftButtonCount + (showNewNoteButton ? 1 : 0);
     const leftGroupClassName = leftButtonCount === 1 ? 'nn-mobile-toolbar-circle' : 'nn-mobile-toolbar-pill';
     const leftButtonBaseClassName =
@@ -101,6 +140,35 @@ export function ListToolbar({ isSearchActive, onSearchToggle, getManualSortNewFi
                 tabIndex={-1}
             >
                 <ServiceIcon iconId={resolveUXIcon(settings.interfaceIcons, 'list-reveal-file')} />
+            </button>
+        ) : null,
+        showSequentialReadingButton ? (
+            <button
+                key="sequential-reading"
+                className={`${leftButtonBaseClassName}${isSequentialReadingActive ? ' nn-mobile-toolbar-button-active' : ''}`}
+                aria-label={
+                    isSequentialReadingActive
+                        ? (strings.sequentialReading?.closeFolder ?? 'Close sequential reading')
+                        : (strings.sequentialReading?.openFolder ?? 'Sequential reading')
+                }
+                aria-pressed={isSequentialReadingActive}
+                onClick={() => {
+                    if (!selectedFolder) {
+                        return;
+                    }
+                    if (isSequentialReadingActive) {
+                        plugin.closeSequentialReading(selectedFolder.path);
+                        return;
+                    }
+                    if (isSearchActive) {
+                        return;
+                    }
+                    runAsyncAction(() => plugin.openSequentialReading(selectedFolder.path));
+                }}
+                disabled={!canToggleSequentialReading}
+                tabIndex={-1}
+            >
+                <ServiceIcon iconId="book-open" />
             </button>
         ) : null,
         showDescendantsButton ? (

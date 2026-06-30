@@ -166,6 +166,18 @@ export const STRINGS_EN = {
         showFilesFromDescendants: 'Show files from descendants',
         search: 'Search' // Tooltip for search button (English: Search)
     },
+    sequentialReading: {
+        viewName: 'Sequential reading',
+        openFolder: 'Sequential reading',
+        closeFolder: 'Close sequential reading',
+        emptyFolder: 'This folder has no Markdown notes.',
+        missingFolder: 'Folder not found.',
+        sectionReadFailed: 'Failed to read this note.',
+        editorUnavailable: 'Sequential reading editor is unavailable; showing read-only preview.',
+        saving: 'Saving...',
+        saved: 'Saved',
+        saveFailed: 'Save failed'
+    },
     // Search input
     searchInput: {
         placeholder: 'Search...', // Placeholder text for search input (English: Search...)

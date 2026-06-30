@@ -1,0 +1,123 @@
+/*
+ * Sequential reading tab.
+ * A folder-scoped stitched Markdown surface with one editable editor per note.
+ */
+
+.nn-sequential-reading-view {
+    height: 100%;
+    overflow-y: auto;
+    overflow-x: hidden;
+    background: var(--background-primary);
+}
+
+.nn-sequential-reading-content {
+    width: min(100%, 980px);
+    margin: 0 auto;
+    padding: 32px 52px 96px;
+}
+
+.nn-sequential-reading-empty {
+    color: var(--text-muted);
+    font-size: var(--font-ui-small);
+    padding: 32px;
+    text-align: center;
+}
+
+.nn-sequential-reading-section {
+    scroll-margin-top: 32px;
+}
+
+.nn-sequential-reading-section-revealed .nn-sequential-reading-divider-label {
+    color: var(--text-muted);
+}
+
+.nn-sequential-reading-divider {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin: 30px 0 14px;
+    color: var(--text-faint);
+    font-size: var(--font-ui-small);
+    line-height: 1;
+}
+
+.nn-sequential-reading-divider::before,
+.nn-sequential-reading-divider::after {
+    content: '';
+    flex: 1 1 auto;
+    min-width: 24px;
+    border-top: 1px dashed var(--background-modifier-border);
+}
+
+.nn-sequential-reading-divider-label {
+    max-width: min(56ch, 52vw);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.nn-sequential-reading-body {
+    color: var(--text-normal);
+}
+
+.nn-sequential-reading-body-empty {
+    min-height: 34px;
+}
+
+.nn-sequential-reading-body .markdown-rendered {
+    padding: 0;
+}
+
+.nn-sequential-reading-body .markdown-source-view,
+.nn-sequential-reading-body .cm-editor {
+    background: transparent;
+}
+
+.nn-sequential-reading-body .cm-editor {
+    min-height: 34px;
+}
+
+.nn-sequential-reading-body .cm-scroller {
+    padding: 0;
+}
+
+.nn-sequential-reading-body .cm-content {
+    padding: 0;
+}
+
+.nn-sequential-reading-body .cm-line {
+    padding-inline: 0;
+}
+
+.nn-sequential-reading-readonly-fallback {
+    opacity: 0.96;
+}
+
+.nn-sequential-reading-status {
+    min-height: 18px;
+    margin-top: 4px;
+    color: var(--text-faint);
+    font-size: var(--font-ui-smaller);
+}
+
+.nn-sequential-reading-status-saving {
+    color: var(--text-muted);
+}
+
+.nn-sequential-reading-status-saved {
+    color: var(--text-faint);
+}
+
+.nn-sequential-reading-status-error {
+    color: var(--text-error);
+}
+
+@media (max-width: 700px) {
+    .nn-sequential-reading-content {
+        padding: 24px 24px 80px;
+    }
+
+    .nn-sequential-reading-divider-label {
+        max-width: 52vw;
+    }
+}

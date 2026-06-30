@@ -24,6 +24,7 @@ import {
     LocalStorageKeys,
     NOTEBOOK_NAVIGATOR_CALENDAR_VIEW,
     NOTEBOOK_NAVIGATOR_FOLDER_NOTE_SIDEBAR_VIEW,
+    NOTEBOOK_NAVIGATOR_SEQUENTIAL_READING_VIEW,
     NOTEBOOK_NAVIGATOR_VIEW,
     STORAGE_KEYS,
     type DualPaneOrientation,
@@ -48,7 +49,7 @@ import type { ExternalIconProviderController } from './services/icons/external/E
 import type { ExternalIconProviderId } from './services/icons/external/providerRegistry';
 import type { NavigateToFolderOptions } from './hooks/useNavigatorReveal';
 import ReleaseCheckService, { type ReleaseUpdateNotice } from './services/ReleaseCheckService';
-import { isNotebookNavigatorCalendarView, isNotebookNavigatorView } from './view/viewGuards';
+import { isNotebookNavigatorCalendarView, isNotebookNavigatorView, isSequentialReadingView } from './view/viewGuards';
 import { localStorage } from './utils/localStorage';
 import { INTERNAL_NOTEBOOK_NAVIGATOR_API, NotebookNavigatorAPI } from './api/NotebookNavigatorAPI';
 import { initializeDatabase, shutdownDatabase } from './storage/fileOperations';
@@ -86,6 +87,7 @@ import {
 } from './services/diagnostics/DebugLoggingService';
 import { applyModifiedSettingsTransfer, createModifiedSettingsTransfer } from './settings/transfer';
 import { DEFAULT_SETTINGS } from './settings/defaultSettings';
+import { saveSequentialReadingSection } from './utils/sequentialReading';
 
 interface ObsidianSettingsModal {
     open(): void;
@@ -133,6 +135,7 @@ export default class NotebookNavigatorPlugin extends Plugin implements ISettings
     private settingsUpdateListeners = new Map<string, () => void>();
     // Map of callbacks to notify open React views when files are renamed
     private fileRenameListeners = new Map<string, (oldPath: string, newPath: string) => void>();
+    private sequentialReadingStateListeners = new Map<string, () => void>();
     private updateNoticeListeners = new Map<string, (notice: ReleaseUpdateNotice | null) => void>();
     // Flag indicating plugin is being unloaded to prevent operations during shutdown
     private isUnloading = false;
@@ -551,6 +554,12 @@ export default class NotebookNavigatorPlugin extends Plugin implements ISettings
                 require('./view/FolderNoteSidebarPlaceholderView') as typeof import('./view/FolderNoteSidebarPlaceholderView');
             return new FolderNoteSidebarPlaceholderView(leaf);
         });
+        this.registerView(NOTEBOOK_NAVIGATOR_SEQUENTIAL_READING_VIEW, leaf => {
+            const { SequentialReadingView } =
+                // eslint-disable-next-line @typescript-eslint/no-require-imports -- Obsidian registerView callbacks must construct views synchronously.
+                require('./view/SequentialReadingView') as typeof import('./view/SequentialReadingView');
+            return new SequentialReadingView(leaf, this);
+        });
 
         // Register commands
         registerNavigatorCommands(this);
@@ -660,6 +669,134 @@ export default class NotebookNavigatorPlugin extends Plugin implements ISettings
 
     public async syncFolderNoteSidebarToFolder(folder: TFolder | null): Promise<void> {
         await this.folderNoteSidebarService?.syncToSelectedFolder(folder);
+    }
+
+    public getSequentialReadingVisibilityPreferences(): VisibilityPreferences {
+        const uxPreferences = this.preferencesController.getUXPreferences();
+        return {
+            includeDescendantNotes: uxPreferences.includeDescendantNotes,
+            showHiddenItems: uxPreferences.showHiddenItems
+        };
+    }
+
+    public isSequentialReadingOpenForFolder(folderPath: string): boolean {
+        return this.app.workspace
+            .getLeavesOfType(NOTEBOOK_NAVIGATOR_SEQUENTIAL_READING_VIEW)
+            .some(leaf => isSequentialReadingView(leaf.view) && leaf.view.getSequentialReadingFolderPath() === folderPath);
+    }
+
+    public closeSequentialReading(folderPath: string): boolean {
+        if (this.isUnloading) {
+            return false;
+        }
+
+        let closed = false;
+        const leaves = [...this.app.workspace.getLeavesOfType(NOTEBOOK_NAVIGATOR_SEQUENTIAL_READING_VIEW)];
+        for (const leaf of leaves) {
+            if (!isSequentialReadingView(leaf.view) || leaf.view.getSequentialReadingFolderPath() !== folderPath) {
+                continue;
+            }
+
+            leaf.detach();
+            closed = true;
+        }
+
+        if (closed) {
+            this.notifySequentialReadingStateChanged();
+        }
+        return closed;
+    }
+
+    public registerSequentialReadingStateListener(id: string, callback: () => void): void {
+        this.sequentialReadingStateListeners.set(id, callback);
+    }
+
+    public unregisterSequentialReadingStateListener(id: string): void {
+        this.sequentialReadingStateListeners.delete(id);
+    }
+
+    public notifySequentialReadingStateChanged(): void {
+        if (this.isUnloading) {
+            return;
+        }
+
+        const listeners = Array.from(this.sequentialReadingStateListeners.values());
+        listeners.forEach(callback => {
+            try {
+                callback();
+            } catch {
+                // Ignore listener errors to avoid breaking workspace updates.
+            }
+        });
+    }
+
+    public async openSequentialReading(folderPath: string, focusPath?: string): Promise<boolean> {
+        if (this.isUnloading) {
+            return false;
+        }
+
+        const folder = folderPath === '/' ? this.app.vault.getRoot() : this.app.vault.getFolderByPath(folderPath);
+        if (!(folder instanceof TFolder)) {
+            return false;
+        }
+
+        for (const leaf of this.app.workspace.getLeavesOfType(NOTEBOOK_NAVIGATOR_SEQUENTIAL_READING_VIEW)) {
+            if (!isSequentialReadingView(leaf.view) || leaf.view.getSequentialReadingFolderPath() !== folder.path) {
+                continue;
+            }
+
+            await leaf.view.setSequentialReadingState({ folderPath: folder.path, focusPath });
+            await this.app.workspace.revealLeaf(leaf);
+            if (focusPath) {
+                leaf.view.revealFile(focusPath);
+            }
+            this.notifySequentialReadingStateChanged();
+            return true;
+        }
+
+        const leaf = this.app.workspace.getLeaf('tab');
+        if (!leaf) {
+            return false;
+        }
+
+        await leaf.setViewState({
+            type: NOTEBOOK_NAVIGATOR_SEQUENTIAL_READING_VIEW,
+            active: true,
+            state: { folderPath: folder.path, focusPath }
+        });
+        await this.app.workspace.revealLeaf(leaf);
+        this.notifySequentialReadingStateChanged();
+        return true;
+    }
+
+    public revealSequentialReadingFile(folderPath: string, filePath: string): boolean {
+        for (const leaf of this.app.workspace.getLeavesOfType(NOTEBOOK_NAVIGATOR_SEQUENTIAL_READING_VIEW)) {
+            const view = leaf.view;
+            if (
+                !isSequentialReadingView(view) ||
+                view.getSequentialReadingFolderPath() !== folderPath ||
+                !view.containsFile(filePath)
+            ) {
+                continue;
+            }
+
+            runAsyncAction(async () => {
+                await this.app.workspace.revealLeaf(leaf);
+                view.revealFile(filePath);
+            });
+            return true;
+        }
+
+        return false;
+    }
+
+    public async saveSequentialReadingSection(filePath: string, bodyMarkdown: string): Promise<void> {
+        const file = this.app.vault.getFileByPath(filePath);
+        if (!(file instanceof TFile) || file.extension !== 'md') {
+            throw new Error(`Cannot save sequential reading section: ${filePath}`);
+        }
+
+        await saveSequentialReadingSection(this.app.vault, file, bodyMarkdown);
     }
 
     /**
@@ -1163,6 +1300,7 @@ export default class NotebookNavigatorPlugin extends Plugin implements ISettings
         // Clear all listeners first to prevent any callbacks during cleanup
         this.settingsUpdateListeners.clear();
         this.fileRenameListeners.clear();
+        this.sequentialReadingStateListeners.clear();
 
         if (this.externalIconController) {
             this.externalIconController.dispose();

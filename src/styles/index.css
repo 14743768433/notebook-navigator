@@ -66,6 +66,8 @@ Keep this list ordered: later files override earlier ones.
 @import './sections/inline-rename.css';
 /* ui-empty-state.css: empty state layout for the list pane (`.nn-empty-state`, `.nn-empty-message`). */
 @import './sections/ui-empty-state.css';
+/* sequential-reading.css: stitched folder reading tab with per-note section dividers and editors. */
+@import './sections/sequential-reading.css';
 
 /* States */
 /* state-selection.css: selection overlays for files and nav items; rounded-corner trimming for multi-select. */
