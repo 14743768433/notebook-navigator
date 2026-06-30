@@ -42,6 +42,7 @@ import {
     type ListSortOverrideValue,
     NARROW_SIDEBAR_CUSTOM_WIDTH_MAX,
     NARROW_SIDEBAR_CUSTOM_WIDTH_MIN,
+    type NoteHierarchyData,
     SYNC_MODE_SETTING_IDS,
     type SettingSyncMode,
     type SyncModeSettingId,
@@ -680,6 +681,15 @@ export class PluginSettingsController {
         ensureVaultProfiles(this.currentSettings);
         this.refreshMatcherCachesIfNeeded();
         localStorage.set(this.options.keys.homepageKey, this.currentSettings.homepage);
+        await this.options.saveData(this.getPersistableSettings());
+    }
+
+    public getNoteHierarchyData(): unknown {
+        return (this.currentSettings as unknown as Record<string, unknown>)['noteHierarchy'];
+    }
+
+    public async saveNoteHierarchyData(data: NoteHierarchyData): Promise<void> {
+        (this.currentSettings as unknown as Record<string, unknown>)['noteHierarchy'] = data;
         await this.options.saveData(this.getPersistableSettings());
     }
 

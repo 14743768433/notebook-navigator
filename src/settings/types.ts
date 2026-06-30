@@ -517,11 +517,19 @@ export interface VaultProfile {
     navRainbow: NavRainbowSettings;
 }
 
+export interface NoteHierarchyData {
+    version: number;
+    parents: Record<string, string>;
+    updatedAt: number;
+}
+
 /**
  * Plugin settings interface defining all configurable options
  * Settings are organized by tab for easier maintenance
  */
 export interface NotebookNavigatorSettings {
+    noteHierarchy?: NoteHierarchyData;
+
     vaultProfiles: VaultProfile[];
     vaultProfile: string;
     vaultTitle: VaultTitleOption;

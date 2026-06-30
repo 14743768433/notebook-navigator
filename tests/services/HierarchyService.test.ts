@@ -17,42 +17,32 @@
  */
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { App } from 'obsidian';
 import { HierarchyService } from '../../src/services/hierarchy/HierarchyService';
+import type { NoteHierarchyData } from '../../src/settings/types';
 
-const TEST_CONFIG_DIR = 'test-config';
-const TEST_HIERARCHY_DATA_PATH = `${TEST_CONFIG_DIR}/plugins/notebook-navigator/hierarchy.json`;
 const activeServices: HierarchyService[] = [];
 
-function createApp(initialFiles: Record<string, string> = {}) {
-    const files = new Map(Object.entries(initialFiles));
-    const adapter = {
-        exists: vi.fn(async (path: string) => files.has(path) || path === `${TEST_CONFIG_DIR}/plugins/notebook-navigator`),
-        read: vi.fn(async (path: string) => files.get(path) ?? ''),
-        write: vi.fn(async (path: string, content: string) => {
-            files.set(path, content);
-        }),
-        mkdir: vi.fn(async (path: string) => {
-            files.set(path, '');
-        })
-    };
+function createStore(initialData?: unknown) {
+    let data = initialData;
+    const saveData = vi.fn(async (nextData: NoteHierarchyData) => {
+        data = nextData;
+    });
 
     return {
-        app: {
-            vault: {
-                configDir: TEST_CONFIG_DIR,
-                adapter
-            }
-        } as unknown as App,
-        adapter,
-        files
+        loadData: () => data,
+        saveData,
+        getData: () => data
     };
 }
 
-function createHierarchyService(app: App): HierarchyService {
-    const service = new HierarchyService(app);
+function createHierarchyService(initialData?: unknown) {
+    const store = createStore(initialData);
+    const service = new HierarchyService({
+        loadData: store.loadData,
+        saveData: store.saveData
+    });
     activeServices.push(service);
-    return service;
+    return { service, store };
 }
 
 afterEach(() => {
@@ -62,9 +52,8 @@ afterEach(() => {
 });
 
 describe('HierarchyService', () => {
-    it('loads an empty hierarchy when hierarchy.json is missing', async () => {
-        const { app } = createApp();
-        const service = createHierarchyService(app);
+    it('loads an empty hierarchy when noteHierarchy is missing', async () => {
+        const { service } = createHierarchyService();
 
         await service.load();
 
@@ -72,18 +61,29 @@ describe('HierarchyService', () => {
         expect(service.getChildren('notes/parent.md')).toEqual([]);
     });
 
-    it('loads an empty hierarchy when hierarchy.json is invalid', async () => {
-        const { app } = createApp({ [TEST_HIERARCHY_DATA_PATH]: '{bad json' });
-        const service = createHierarchyService(app);
+    it('loads an empty hierarchy when noteHierarchy is invalid', async () => {
+        const { service } = createHierarchyService('bad data');
 
         await service.load();
 
         expect(service.getParentEntries().size).toBe(0);
     });
 
+    it('loads parents from noteHierarchy data', async () => {
+        const { service } = createHierarchyService({
+            version: 1,
+            parents: { 'notes/child.md': 'notes/parent.md' },
+            updatedAt: 1
+        });
+
+        await service.load();
+
+        expect(service.getParent('notes/child.md')).toBe('notes/parent.md');
+        expect(service.getChildren('notes/parent.md')).toEqual(['notes/child.md']);
+    });
+
     it('sets parents, persists the envelope, and notifies subscribers', async () => {
-        const { app, files } = createApp();
-        const service = createHierarchyService(app);
+        const { service, store } = createHierarchyService();
         const listener = vi.fn();
         service.subscribe(listener);
 
@@ -94,15 +94,15 @@ describe('HierarchyService', () => {
         expect(result.ok).toBe(true);
         expect(service.getParent('notes/child.md')).toBe('notes/parent.md');
         expect(service.getChildren('notes/parent.md')).toEqual(['notes/child.md']);
-        const saved = JSON.parse(files.get(TEST_HIERARCHY_DATA_PATH) ?? '{}') as { version: number; parents: Record<string, string> };
+        const saved = store.getData() as NoteHierarchyData;
         expect(saved.version).toBe(1);
         expect(saved.parents).toEqual({ 'notes/child.md': 'notes/parent.md' });
+        expect(store.saveData).toHaveBeenCalledTimes(1);
         expect(listener).toHaveBeenCalled();
     });
 
     it('rejects self and descendant parent assignments', async () => {
-        const { app } = createApp();
-        const service = createHierarchyService(app);
+        const { service } = createHierarchyService();
         await service.load();
 
         expect(service.setParent('notes/a.md', 'notes/a.md')).toEqual({ ok: false, reason: 'self' });
@@ -112,8 +112,7 @@ describe('HierarchyService', () => {
     });
 
     it('renames child and parent paths', async () => {
-        const { app } = createApp();
-        const service = createHierarchyService(app);
+        const { service } = createHierarchyService();
         await service.load();
         service.setParent('notes/child.md', 'notes/parent.md');
         service.setParent('notes/grandchild.md', 'notes/child.md');
@@ -126,8 +125,7 @@ describe('HierarchyService', () => {
     });
 
     it('deletes a node and promotes its children to root', async () => {
-        const { app } = createApp();
-        const service = createHierarchyService(app);
+        const { service } = createHierarchyService();
         await service.load();
         service.setParent('notes/child.md', 'notes/parent.md');
         service.setParent('notes/grandchild.md', 'notes/child.md');

@@ -16,18 +16,11 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import type { App } from 'obsidian';
+import type { NoteHierarchyData } from '../../settings/types';
 import { isRecord } from '../../utils/typeGuards';
 
-export const HIERARCHY_DATA_FILE_NAME = 'hierarchy.json';
 const HIERARCHY_SCHEMA_VERSION = 1;
 const SAVE_DEBOUNCE_MS = 150;
-
-interface HierarchyDataEnvelope {
-    version: number;
-    parents: Record<string, string>;
-    updatedAt: number;
-}
 
 export interface HierarchySetParentResult {
     ok: boolean;
@@ -35,6 +28,11 @@ export interface HierarchySetParentResult {
 }
 
 type HierarchyListener = () => void;
+
+interface HierarchyServiceOptions {
+    loadData: () => unknown;
+    saveData: (data: NoteHierarchyData) => Promise<void>;
+}
 
 function normalizeParents(value: unknown): Map<string, string> {
     if (!isRecord(value)) {
@@ -59,11 +57,7 @@ export class HierarchyService {
     private version = 0;
     private isDisposed = false;
 
-    constructor(private readonly app: App) {}
-
-    getDataPath(): string {
-        return `${this.app.vault.configDir}/plugins/notebook-navigator/${HIERARCHY_DATA_FILE_NAME}`;
-    }
+    constructor(private readonly options: HierarchyServiceOptions) {}
 
     async load(): Promise<void> {
         if (this.isDisposed) {
@@ -71,26 +65,23 @@ export class HierarchyService {
         }
 
         try {
-            const adapter = this.app.vault.adapter;
-            const dataPath = this.getDataPath();
-            if (!(await adapter.exists(dataPath))) {
+            const parsed = this.options.loadData();
+            if (parsed === null || parsed === undefined) {
                 this.replaceParents(new Map());
                 this.bumpVersion();
                 return;
             }
 
-            const raw = await adapter.read(dataPath);
-            const parsed = JSON.parse(raw) as unknown;
             if (!isRecord(parsed)) {
-                console.warn('Notebook Navigator hierarchy.json is invalid; using empty hierarchy.');
+                console.warn('Notebook Navigator noteHierarchy data is invalid; using empty hierarchy.');
                 this.replaceParents(new Map());
                 this.bumpVersion();
                 return;
             }
 
-            const envelope = parsed as Partial<HierarchyDataEnvelope>;
+            const envelope = parsed as Partial<NoteHierarchyData>;
             if (envelope.version !== HIERARCHY_SCHEMA_VERSION) {
-                console.warn('Unsupported Notebook Navigator hierarchy.json version; using empty hierarchy.');
+                console.warn('Unsupported Notebook Navigator noteHierarchy version; using empty hierarchy.');
                 this.replaceParents(new Map());
                 this.bumpVersion();
                 return;
@@ -99,7 +90,7 @@ export class HierarchyService {
             this.replaceParents(normalizeParents(envelope.parents));
             this.bumpVersion();
         } catch (error) {
-            console.warn('Failed to load Notebook Navigator hierarchy.json; using empty hierarchy.', error);
+            console.warn('Failed to load Notebook Navigator noteHierarchy data; using empty hierarchy.', error);
             this.replaceParents(new Map());
             this.bumpVersion();
         }
@@ -286,22 +277,16 @@ export class HierarchyService {
             return;
         }
 
-        const envelope: HierarchyDataEnvelope = {
+        const envelope: NoteHierarchyData = {
             version: HIERARCHY_SCHEMA_VERSION,
             parents: Object.fromEntries(this.parents),
             updatedAt: Date.now()
         };
 
         try {
-            const adapter = this.app.vault.adapter;
-            const dataPath = this.getDataPath();
-            const pluginDir = dataPath.slice(0, dataPath.lastIndexOf('/'));
-            if (!(await adapter.exists(pluginDir))) {
-                await adapter.mkdir(pluginDir);
-            }
-            await adapter.write(dataPath, JSON.stringify(envelope, null, 2));
+            await this.options.saveData(envelope);
         } catch (error) {
-            console.error('Failed to save Notebook Navigator hierarchy.json', error);
+            console.error('Failed to save Notebook Navigator noteHierarchy data', error);
         }
     }
 

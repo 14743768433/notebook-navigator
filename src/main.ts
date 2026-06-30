@@ -242,6 +242,7 @@ export default class NotebookNavigatorPlugin extends Plugin implements ISettings
         }
 
         await this.loadSettings();
+        await this.hierarchyService?.load();
         const includeDescendantNotesChanged = this.preferencesController.syncMirrorsFromSettings();
         this.preferencesController.initializeRecentDataManager();
         this.notifySettingsUpdateWithFullRefresh();
@@ -469,7 +470,10 @@ export default class NotebookNavigatorPlugin extends Plugin implements ISettings
         // Initialize services
         this.tagTreeService = new TagTreeService();
         this.propertyTreeService = new PropertyTreeService();
-        this.hierarchyService = new HierarchyService(this.app);
+        this.hierarchyService = new HierarchyService({
+            loadData: () => this.settingsController.getNoteHierarchyData(),
+            saveData: data => this.settingsController.saveNoteHierarchyData(data)
+        });
         await this.hierarchyService.load();
         this.metadataService = new MetadataService(
             this.app,

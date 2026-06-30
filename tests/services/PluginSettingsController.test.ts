@@ -271,6 +271,41 @@ describe('PluginSettingsController.loadSettings', () => {
 });
 
 describe('PluginSettingsController.saveSettings', () => {
+    it('keeps note hierarchy data in data.json when settings are saved', async () => {
+        const initialHierarchy = {
+            version: 1,
+            parents: { 'notes/child.md': 'notes/parent.md' },
+            updatedAt: 1
+        };
+        let storedData: Record<string, unknown> | null = {
+            noteHierarchy: initialHierarchy
+        };
+
+        const controller = new PluginSettingsController({
+            keys: STORAGE_KEYS,
+            loadData: vi.fn(async () => (storedData ? structuredClone(storedData) : null)),
+            saveData: vi.fn(async data => {
+                storedData = structuredClone(data) as Record<string, unknown>;
+            }),
+            mirrorUXPreferences: vi.fn()
+        });
+
+        await controller.loadSettings();
+        controller.settings.vaultTitle = 'name';
+        await controller.saveSettings();
+
+        expect(storedData?.['noteHierarchy']).toEqual(initialHierarchy);
+
+        const nextHierarchy = {
+            version: 1,
+            parents: { 'notes/next-child.md': 'notes/next-parent.md' },
+            updatedAt: 2
+        };
+        await controller.saveNoteHierarchyData(nextHierarchy);
+
+        expect(storedData?.['noteHierarchy']).toEqual(nextHierarchy);
+    });
+
     it('updates local homepage storage when homepage is local', async () => {
         let storedData: Record<string, unknown> | null = null;
 
