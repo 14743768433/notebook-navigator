@@ -148,6 +148,7 @@ interface FileItemProps {
     hasSelectedBelow?: boolean;
     showQuickActionsPanel: boolean;
     onFileClick: (file: TFile, fileIndex: number | undefined, event: React.MouseEvent) => void;
+    onFilePointerDown: (file: TFile, event: React.PointerEvent) => void;
     fileIndex?: number;
     groupHeaderLabel?: string | null;
     sortOption?: SortOption;
@@ -198,6 +199,29 @@ export interface FileItemStorageHelpers {
     getFileTimestamps: (file: TFile) => { created: number; modified: number };
     hasPreview: (path: string) => boolean;
     regenerateFeatureImageForFile: (file: TFile) => Promise<void>;
+}
+
+function isInteractivePointerDownTarget(target: EventTarget | null): boolean {
+    if (typeof Element === 'undefined' || !(target instanceof Element)) {
+        return false;
+    }
+
+    return Boolean(
+        target.closest(
+            [
+                'button',
+                'input',
+                'textarea',
+                'select',
+                'a',
+                '[role="button"]',
+                '.nn-quick-actions-panel',
+                '.nn-file-tag',
+                '.nn-file-property',
+                '.nn-parent-folder'
+            ].join(',')
+        )
+    );
 }
 
 /**
@@ -382,6 +406,7 @@ export const FileItem = React.memo(function FileItem({
     hasSelectedBelow,
     showQuickActionsPanel,
     onFileClick,
+    onFilePointerDown,
     fileIndex,
     groupHeaderLabel,
     sortOption,
@@ -1342,6 +1367,17 @@ export const FileItem = React.memo(function FileItem({
         [file, fileIndex, onFileClick]
     );
 
+    const handlePointerDown = useCallback(
+        (event: React.PointerEvent) => {
+            if (isInteractivePointerDownTarget(event.target)) {
+                return;
+            }
+
+            onFilePointerDown(file, event);
+        },
+        [file, onFilePointerDown]
+    );
+
     return (
         <div
             ref={fileRef}
@@ -1359,6 +1395,7 @@ export const FileItem = React.memo(function FileItem({
             data-drag-fallback-icon={dragFallbackIconId}
             // Icon color to display in drag preview
             data-drag-icon-color={dragIconColor}
+            onPointerDown={handlePointerDown}
             onClick={handleItemClick}
             onMouseDown={handleMouseDown}
             draggable={!isMobile && !disableNativeDrag}

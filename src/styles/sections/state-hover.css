@@ -4,4 +4,23 @@
    Hover States
    ======================================================================== */
 
-/* File rows intentionally keep their existing styling on hover. */
+.nn-desktop .nn-file:not(.nn-selected):hover .nn-file-content::before {
+    content: '';
+    position: absolute;
+    top: 0px;
+    inset-inline-start: 0;
+    inset-inline-end: 0;
+    bottom: -0.5px;
+    background-color: var(--nn-theme-file-hover-bg);
+    border-top-left-radius: var(--nn-file-top-left-radius, var(--nn-file-item-border-radius));
+    border-top-right-radius: var(--nn-file-top-right-radius, var(--nn-file-item-border-radius));
+    border-bottom-left-radius: var(--nn-file-bottom-left-radius, var(--nn-file-item-border-radius));
+    border-bottom-right-radius: var(--nn-file-bottom-right-radius, var(--nn-file-item-border-radius));
+    z-index: 0;
+    pointer-events: none;
+}
+
+.nn-desktop .nn-file:not(.nn-selected):hover .nn-file-inner-content {
+    position: relative;
+    z-index: 5;
+}

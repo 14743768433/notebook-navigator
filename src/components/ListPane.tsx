@@ -98,6 +98,7 @@ import { runAsyncAction } from '../utils/async';
 import { getFilesForNavigationSelection, getPinnedSectionCollapseKey } from '../utils/selectionUtils';
 import { partitionPinnedFiles } from '../utils/fileFinder';
 import { getParentFolderPath } from '../utils/pathUtils';
+import { canAttachNoteTreeSelectionToParent, getTopLevelSelectedNoteTreePaths } from '../utils/noteTreeDrag';
 import {
     applyManualSortTargetOrderToPlanningScope,
     areManualSortAssignmentsCached,
@@ -107,9 +108,9 @@ import {
     getLocalizedManualSortWriteFailureMessage,
     getManualSortPropertyValue,
     getManualSortSelectedMarkdownPaths,
+    insertManualSortMarkdownFilesAtDropTarget,
     moveManualSortSelectionByDirection,
     partitionManualSortFiles,
-    reorderManualSortMarkdownFilesAtDropTarget,
     writeManualSortAssignments,
     type ManualSortOrderAssignment,
     type ManualSortNewFilePlacementContext
@@ -932,6 +933,8 @@ export const ListPane = React.memo(
             selectAdjacentFile,
             ensureSelectionForCurrentFilter,
             handleFileItemClick,
+            handleFileItemPointerDown,
+            handleListBackgroundPointerDown,
             lastSelectedFilePath,
             isFileSelected,
             scheduleKeyboardSelectionOpen,
@@ -1185,7 +1188,7 @@ export const ListPane = React.memo(
             ]
         );
         const getHierarchySiblingScopeFiles = React.useCallback(
-            (parentPath: string | null, activePath: string): TFile[] => {
+            (parentPath: string | null): TFile[] => {
                 if (selectionType !== ItemType.FOLDER || !selectedFolder) {
                     return [];
                 }
@@ -1193,25 +1196,37 @@ export const ListPane = React.memo(
                 const contextFilter: NavigatorContext = 'folder';
                 const pinnedDisplayScope = settings.filterPinnedByFolder ? { restrictToFolderPath: selectedFolder.path } : undefined;
                 const { unpinnedFiles } = partitionPinnedFiles(files, settings.pinnedNotes, contextFilter, pinnedDisplayScope);
-                const activeFile = app.vault.getFileByPath(activePath);
-                const filesInScope = unpinnedFiles.filter(file => {
+                return unpinnedFiles.filter(file => {
                     if (file.extension !== 'md' || getParentFolderPath(file.path) !== selectedFolder.path) {
                         return false;
                     }
                     return (hierarchyService?.getParent(file.path) ?? null) === parentPath;
                 });
-                const hasActiveInScope = filesInScope.some(file => file.path === activePath);
-                if (
-                    activeFile instanceof TFile &&
-                    activeFile.extension === 'md' &&
-                    getParentFolderPath(activeFile.path) === selectedFolder.path &&
-                    !hasActiveInScope
-                ) {
-                    filesInScope.push(activeFile);
-                }
-                return filesInScope;
             },
-            [app.vault, files, hierarchyService, selectedFolder, selectionType, settings.filterPinnedByFolder, settings.pinnedNotes]
+            [files, hierarchyService, selectedFolder, selectionType, settings.filterPinnedByFolder, settings.pinnedNotes]
+        );
+        const getHierarchyDragSelectedMarkdownPaths = React.useCallback(
+            (activePath: string): Set<string> => {
+                if (!selectionState.selectedFiles.has(activePath)) {
+                    return new Set([activePath]);
+                }
+
+                const selectedPaths = new Set<string>();
+                listItems.forEach(item => {
+                    if (
+                        item.type === ListPaneItemType.FILE &&
+                        item.data instanceof TFile &&
+                        item.data.extension === 'md' &&
+                        !item.isPinned &&
+                        selectionState.selectedFiles.has(item.data.path)
+                    ) {
+                        selectedPaths.add(item.data.path);
+                    }
+                });
+
+                return selectedPaths.has(activePath) ? selectedPaths : new Set([activePath]);
+            },
+            [listItems, selectionState.selectedFiles]
         );
         const handleListDragSort = React.useCallback(
             (drop: ListPaneDragSortDrop): boolean => {
@@ -1225,32 +1240,45 @@ export const ListPane = React.memo(
                     return false;
                 }
 
-                const currentParentPath = hierarchyService?.getParent(drop.activePath) ?? null;
                 const targetParentPath = drop.parentPath;
-                const currentScopeFiles = getHierarchySiblingScopeFiles(currentParentPath, drop.activePath);
-                const selectedMarkdownPaths = getManualSortSelectedMarkdownPaths(
-                    currentScopeFiles.filter(file => file.extension === 'md'),
-                    drop.activePath,
-                    selectionState.selectedFiles
-                );
-                const movedPaths =
-                    selectedMarkdownPaths.size > 1 && currentParentPath === targetParentPath
-                        ? selectedMarkdownPaths
-                        : new Set([drop.activePath]);
-                if (selectedMarkdownPaths.size > 1 && currentParentPath !== targetParentPath) {
+                if (drop.intent === 'child' && (!hierarchyService || !targetParentPath)) {
                     return false;
                 }
 
+                const dragSelectedPaths = getHierarchyDragSelectedMarkdownPaths(drop.activePath);
+                const movedPaths = getTopLevelSelectedNoteTreePaths(dragSelectedPaths, path => hierarchyService?.getParent(path) ?? null);
+                if (movedPaths.size === 0) {
+                    return false;
+                }
+                if (
+                    targetParentPath &&
+                    (!hierarchyService ||
+                        !canAttachNoteTreeSelectionToParent(movedPaths, targetParentPath, (ancestorPath, candidatePath) =>
+                            hierarchyService.isDescendant(ancestorPath, candidatePath)
+                        ))
+                ) {
+                    return false;
+                }
+
+                const movedFiles: TFile[] = [];
+                for (const path of movedPaths) {
+                    const movedFile = app.vault.getFileByPath(path);
+                    if (!(movedFile instanceof TFile) || movedFile.extension !== 'md') {
+                        return false;
+                    }
+                    movedFiles.push(movedFile);
+                }
+
+                const targetScopeFiles = getHierarchySiblingScopeFiles(targetParentPath);
+                const targetScopePathSet = new Set(targetScopeFiles.map(file => file.path));
                 let nextScopeFiles: TFile[] | null = null;
-                const targetScopeFiles = getHierarchySiblingScopeFiles(targetParentPath, drop.activePath);
                 if (drop.intent === 'child') {
-                    nextScopeFiles = [...targetScopeFiles.filter(file => file.path !== drop.activePath), activeFile];
+                    nextScopeFiles = [...targetScopeFiles.filter(file => !movedPaths.has(file.path)), ...movedFiles];
                 } else {
-                    nextScopeFiles = reorderManualSortMarkdownFilesAtDropTarget(
+                    nextScopeFiles = insertManualSortMarkdownFilesAtDropTarget(
                         targetScopeFiles,
-                        drop.activePath,
+                        movedFiles,
                         drop.overPath,
-                        movedPaths,
                         drop.position
                     );
                 }
@@ -1258,16 +1286,38 @@ export const ListPane = React.memo(
                     return false;
                 }
 
-                if (currentParentPath !== targetParentPath) {
-                    if (!hierarchyService) {
-                        return false;
-                    }
-                    const parentResult = hierarchyService.setParent(drop.activePath, targetParentPath);
-                    if (!parentResult.ok) {
-                        showNotice(strings.common.unknownError, { variant: 'warning' });
-                        return false;
-                    }
+                const parentUpdatePaths = Array.from(movedPaths).filter(
+                    path => (hierarchyService?.getParent(path) ?? null) !== targetParentPath
+                );
+                if (parentUpdatePaths.length > 0 && !hierarchyService) {
+                    return false;
                 }
+                if (
+                    hierarchyService &&
+                    parentUpdatePaths.length > 0 &&
+                    !canAttachNoteTreeSelectionToParent(
+                        movedPaths,
+                        targetParentPath,
+                        (ancestorPath, candidatePath) => hierarchyService.isDescendant(ancestorPath, candidatePath)
+                    )
+                ) {
+                    return false;
+                }
+
+                const applyParentUpdates = (): boolean => {
+                    if (!hierarchyService) {
+                        return parentUpdatePaths.length === 0;
+                    }
+
+                    for (const path of parentUpdatePaths) {
+                        const parentResult = hierarchyService.setParent(path, targetParentPath);
+                        if (!parentResult.ok) {
+                            showNotice(strings.common.unknownError, { variant: 'warning' });
+                            return false;
+                        }
+                    }
+                    return true;
+                };
 
                 const rankByPath = buildManualSortRankMap(
                     app,
@@ -1276,21 +1326,24 @@ export const ListPane = React.memo(
                     activePropertyKeyboardReorderState?.pendingAssignments ?? []
                 );
                 const plan = buildManualSortRankPlan(nextScopeFiles, movedPaths, rankByPath);
-                const targetScopePathSet = new Set(targetScopeFiles.map(file => file.path));
+                const movedWithinTargetScope = Array.from(movedPaths).every(path => targetScopePathSet.has(path));
                 let nextScopeIndex = 0;
-                const nextOrderedFiles =
-                    currentParentPath === targetParentPath
-                        ? orderedFiles.map(file => {
-                              if (!targetScopePathSet.has(file.path)) {
-                                  return file;
-                              }
-                              const nextScopeFile = nextScopeFiles[nextScopeIndex];
-                              nextScopeIndex += 1;
-                              return nextScopeFile ?? file;
-                          })
-                        : orderedFiles;
+                const nextOrderedFiles = movedWithinTargetScope
+                    ? orderedFiles.map(file => {
+                          if (!targetScopePathSet.has(file.path)) {
+                              return file;
+                          }
+                          const nextScopeFile = nextScopeFiles[nextScopeIndex];
+                          nextScopeIndex += 1;
+                          return nextScopeFile ?? file;
+                      })
+                    : orderedFiles;
                 const nextOrder = getMarkdownPathOrder(nextOrderedFiles);
                 const savePlan = () => {
+                    if (!applyParentUpdates()) {
+                        return;
+                    }
+
                     const saveId = propertyKeyboardReorderSaveCounterRef.current + 1;
                     propertyKeyboardReorderSaveCounterRef.current = saveId;
                     propertyKeyboardReorderSavingRef.current = true;
@@ -1322,12 +1375,12 @@ export const ListPane = React.memo(
                 canUsePropertyKeyboardReorder,
                 confirmManualSortCompaction,
                 effectivePropertySortKey,
+                getHierarchyDragSelectedMarkdownPaths,
                 getHierarchySiblingScopeFiles,
                 hierarchyService,
                 manualSortSelectionKey,
                 orderedFiles,
-                savePropertyKeyboardReorder,
-                selectionState.selectedFiles
+                savePropertyKeyboardReorder
             ]
         );
 
@@ -1582,6 +1635,8 @@ export const ListPane = React.memo(
                         suppressRowHover={isListScrolling}
                         onHoveredFilePathChange={handleHoveredFilePathChange}
                         onFileClick={handleFileItemClick}
+                        onFilePointerDown={handleFileItemPointerDown}
+                        onListBackgroundPointerDown={handleListBackgroundPointerDown}
                         onModifySearchWithTag={modifySearchWithTag}
                         onModifySearchWithProperty={modifySearchWithProperty}
                         localDayReference={localDayReference}

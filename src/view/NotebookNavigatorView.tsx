@@ -194,7 +194,12 @@ export class NotebookNavigatorView extends ItemView {
                             <ServicesProvider plugin={this.plugin}>
                                 <ShortcutsProvider>
                                     <StorageProvider app={this.plugin.app} api={this.plugin.api}>
-                                        <ExpansionProvider>
+                                        <ExpansionProvider
+                                            onFileRename={(listenerId, callback) =>
+                                                this.plugin.registerFileRenameListener(listenerId, callback)
+                                            }
+                                            onFileRenameUnsubscribe={listenerId => this.plugin.unregisterFileRenameListener(listenerId)}
+                                        >
                                             <SelectionProvider
                                                 app={this.plugin.app}
                                                 api={this.plugin.api}

@@ -20,6 +20,9 @@ import React, { createContext, useContext, useReducer, useEffect, ReactNode } fr
 import { PROPERTIES_ROOT_VIRTUAL_FOLDER_ID, STORAGE_KEYS, TAGS_ROOT_VIRTUAL_FOLDER_ID } from '../types';
 import { localStorage } from '../utils/localStorage';
 import { normalizeStoredCollapsedListGroupKeys } from '../utils/listGroupCollapse';
+import { getParentFolderPath } from '../utils/pathUtils';
+
+const NOTE_TREE_NODE_KEY_SEPARATOR = '\u0001';
 
 // State interface
 interface ExpansionState {
@@ -43,6 +46,7 @@ export type ExpansionAction =
     | { type: 'TOGGLE_VIRTUAL_FOLDER_EXPANDED'; folderId: string }
     | { type: 'TOGGLE_LIST_GROUP_COLLAPSED'; collapseKey: string }
     | { type: 'TOGGLE_NOTE_TREE_NODE_EXPANDED'; nodeKey: string }
+    | { type: 'RENAME_NOTE_TREE_NODE_PATH'; oldPath: string; newPath: string }
     | { type: 'EXPAND_LIST_GROUP'; collapseKey: string }
     | { type: 'EXPAND_NOTE_TREE_NODE'; nodeKey: string }
     | { type: 'EXPAND_FOLDERS'; folderPaths: string[] }
@@ -79,6 +83,42 @@ function filterExpandedSet(currentValues: Set<string>, validValues: Set<string>)
     });
 
     return filteredValues;
+}
+
+function renameNoteTreeNodeKey(key: string, oldPath: string, newPath: string): string {
+    const separatorIndex = key.indexOf(NOTE_TREE_NODE_KEY_SEPARATOR);
+    if (separatorIndex === -1) {
+        return key;
+    }
+
+    const scopePath = key.slice(0, separatorIndex);
+    const filePath = key.slice(separatorIndex + NOTE_TREE_NODE_KEY_SEPARATOR.length);
+    if (filePath !== oldPath) {
+        return key;
+    }
+
+    const oldParentPath = getParentFolderPath(oldPath);
+    const newParentPath = getParentFolderPath(newPath);
+    const nextScopePath = scopePath === oldParentPath ? newParentPath : scopePath;
+    return `${nextScopePath}${NOTE_TREE_NODE_KEY_SEPARATOR}${newPath}`;
+}
+
+export function renameExpandedNoteTreeNodeKeys(currentValues: Set<string>, oldPath: string, newPath: string): Set<string> | null {
+    if (oldPath === newPath) {
+        return null;
+    }
+
+    let changed = false;
+    const nextValues = new Set<string>();
+    currentValues.forEach(value => {
+        const nextValue = renameNoteTreeNodeKey(value, oldPath, newPath);
+        if (nextValue !== value) {
+            changed = true;
+        }
+        nextValues.add(nextValue);
+    });
+
+    return changed ? nextValues : null;
 }
 
 // Reducer
@@ -154,6 +194,14 @@ function expansionReducer(state: ExpansionState, action: ExpansionAction): Expan
                 newExpanded.add(action.nodeKey);
             }
             return { ...state, expandedNoteTreeNodes: newExpanded };
+        }
+
+        case 'RENAME_NOTE_TREE_NODE_PATH': {
+            const renamed = renameExpandedNoteTreeNodeKeys(state.expandedNoteTreeNodes, action.oldPath, action.newPath);
+            if (!renamed) {
+                return state;
+            }
+            return { ...state, expandedNoteTreeNodes: renamed };
         }
 
         case 'EXPAND_LIST_GROUP': {
@@ -262,9 +310,11 @@ function expansionReducer(state: ExpansionState, action: ExpansionAction): Expan
 // Provider component
 interface ExpansionProviderProps {
     children: ReactNode;
+    onFileRename?: (listenerId: string, callback: (oldPath: string, newPath: string) => void) => void;
+    onFileRenameUnsubscribe?: (listenerId: string) => void;
 }
 
-export function ExpansionProvider({ children }: ExpansionProviderProps) {
+export function ExpansionProvider({ children, onFileRename, onFileRenameUnsubscribe }: ExpansionProviderProps) {
     // Load initial state from localStorage
     const loadInitialState = (): ExpansionState => {
         const savedExpandedFolders = localStorage.get<string[]>(STORAGE_KEYS.expandedFoldersKey);
@@ -319,6 +369,18 @@ export function ExpansionProvider({ children }: ExpansionProviderProps) {
     useEffect(() => {
         localStorage.set(STORAGE_KEYS.expandedNoteTreeNodesKey, Array.from(state.expandedNoteTreeNodes));
     }, [state.expandedNoteTreeNodes]);
+
+    useEffect(() => {
+        const listenerId = `expansion-context-${Math.random().toString(36).substring(2, 11)}`;
+        const handleFileRename = (oldPath: string, newPath: string) => {
+            dispatch({ type: 'RENAME_NOTE_TREE_NODE_PATH', oldPath, newPath });
+        };
+
+        onFileRename?.(listenerId, handleFileRename);
+        return () => {
+            onFileRenameUnsubscribe?.(listenerId);
+        };
+    }, [onFileRename, onFileRenameUnsubscribe]);
 
     return (
         <ExpansionContext.Provider value={state}>

@@ -286,6 +286,7 @@ body {
     --nn-theme-file-border-radius: 8px;
     --nn-theme-file-border-width: 0px;
     --nn-theme-file-pill-border-width: 1px;
+    --nn-theme-file-hover-bg: color-mix(in srgb, var(--nn-theme-file-selected-bg) 36%, transparent);
     --nn-theme-file-selected-border-color: transparent;
     --nn-theme-file-selected-inactive-border-color: var(--nn-theme-file-selected-border-color);
     --nn-theme-file-selected-bg: var(--text-selection);
@@ -423,7 +424,7 @@ body {
     --nn-selected-navitem-count-border-color: var(--nn-theme-navitem-selected-count-border-color);
 }
 
-.nn-split-container:is([data-navigator-focused='false'], [data-focus-pane='navigation'], [data-focus-pane='search']) {
+.nn-split-container:is([data-focus-pane='navigation'], [data-focus-pane='search']) {
     --nn-selected-file-bg-color: var(--nn-computed-file-selected-inactive-bg, var(--nn-theme-file-selected-inactive-bg));
     --nn-selected-file-name-color: var(--nn-theme-file-selected-inactive-name-color);
     --nn-selected-file-preview-color: var(--nn-theme-file-selected-inactive-preview-color);
@@ -437,7 +438,7 @@ body {
     --nn-selected-file-border-color: var(--nn-theme-file-selected-inactive-border-color);
 }
 
-.nn-split-container:is([data-navigator-focused='false'], [data-focus-pane='files'], [data-focus-pane='search']) {
+.nn-split-container:is([data-focus-pane='files'], [data-focus-pane='search']) {
     --nn-selected-navitem-bg-color: var(--nn-computed-navitem-selected-inactive-bg, var(--nn-theme-navitem-selected-inactive-bg));
     --nn-selected-navitem-name-color: var(--nn-theme-navitem-selected-inactive-name-color);
     --nn-selected-navitem-chevron-color: var(--nn-theme-navitem-selected-inactive-chevron-color);
@@ -5269,7 +5270,26 @@ button.nn-list-group-header-collapse-button .nn-list-group-header-icon {
    Hover States
    ======================================================================== */
 
-/* File rows intentionally keep their existing styling on hover. */
+.nn-desktop .nn-file:not(.nn-selected):hover .nn-file-content::before {
+    content: '';
+    position: absolute;
+    top: 0px;
+    inset-inline-start: 0;
+    inset-inline-end: 0;
+    bottom: -0.5px;
+    background-color: var(--nn-theme-file-hover-bg);
+    border-top-left-radius: var(--nn-file-top-left-radius, var(--nn-file-item-border-radius));
+    border-top-right-radius: var(--nn-file-top-right-radius, var(--nn-file-item-border-radius));
+    border-bottom-left-radius: var(--nn-file-bottom-left-radius, var(--nn-file-item-border-radius));
+    border-bottom-right-radius: var(--nn-file-bottom-right-radius, var(--nn-file-item-border-radius));
+    z-index: 0;
+    pointer-events: none;
+}
+
+.nn-desktop .nn-file:not(.nn-selected):hover .nn-file-inner-content {
+    position: relative;
+    z-index: 5;
+}
 /* Source: src/styles/sections/state-drag-and-drop.css */
 
 /* ========================================================================

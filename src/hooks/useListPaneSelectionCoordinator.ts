@@ -16,7 +16,15 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { useCallback, useEffect, useMemo, useRef, type MouseEvent as ReactMouseEvent, type RefObject } from 'react';
+import {
+    useCallback,
+    useEffect,
+    useMemo,
+    useRef,
+    type MouseEvent as ReactMouseEvent,
+    type PointerEvent as ReactPointerEvent,
+    type RefObject
+} from 'react';
 import { TFile, debounce } from 'obsidian';
 import { resolvePrimarySelectedFile, useSelectionDispatch, useSelectionState } from '../context/SelectionContext';
 import { useServices } from '../context/ServicesContext';
@@ -63,11 +71,34 @@ interface UseListPaneSelectionCoordinatorResult {
     selectAdjacentFile: (direction: 'next' | 'previous') => boolean;
     ensureSelectionForCurrentFilter: (options?: EnsureSelectionOptions) => EnsureSelectionResult;
     handleFileItemClick: (file: TFile, fileIndex: number | undefined, event: ReactMouseEvent, filesOverride?: TFile[]) => void;
+    handleFileItemPointerDown: (file: TFile, event: ReactPointerEvent) => void;
+    handleListBackgroundPointerDown: (event: ReactPointerEvent<HTMLDivElement>) => void;
     lastSelectedFilePath: string | null;
     isFileSelected: (file: TFile) => boolean;
     scheduleKeyboardSelectionOpen: () => void;
     scheduleKeyboardSelectionOpenForFile: (file: TFile) => void;
     commitPendingKeyboardSelectionOpen: () => void;
+}
+
+const LIST_BACKGROUND_INTERACTIVE_SELECTOR = [
+    '.nn-file',
+    '.nn-list-group-header',
+    '.nn-list-sticky-header',
+    '.nn-empty-state',
+    '.nn-list-drop-indicator',
+    '.nn-drag-overlay'
+].join(',');
+
+function getPointerTargetElement(target: EventTarget | null): Element | null {
+    if (typeof Element !== 'undefined' && target instanceof Element) {
+        return target;
+    }
+
+    if (typeof Node !== 'undefined' && target instanceof Node) {
+        return target.parentElement;
+    }
+
+    return null;
 }
 
 export function useListPaneSelectionCoordinator({
@@ -95,6 +126,11 @@ export function useListPaneSelectionCoordinator({
     const commitPendingKeyboardSelectionOpenRef = useRef<() => void>(() => {});
     const focusedPaneRef = useRef(uiState.focusedPane);
     const lastSelectedFilePathRef = useRef<string | null>(null);
+    const selectedFilesRef = useRef(selectionState.selectedFiles);
+
+    useEffect(() => {
+        selectedFilesRef.current = selectionState.selectedFiles;
+    }, [selectionState.selectedFiles]);
 
     const debouncedOpenFileInWorkspace = useMemo(() => {
         return debounce(
@@ -432,6 +468,91 @@ export function useListPaneSelectionCoordinator({
         [handleFileClick]
     );
 
+    const handleFileItemPointerDown = useCallback(
+        (file: TFile, event: ReactPointerEvent) => {
+            if (event.defaultPrevented || event.button !== 0 || event.pointerType !== 'mouse') {
+                return;
+            }
+
+            const isShiftKey = event.shiftKey;
+            const isCmdCtrlClick = isCmdCtrlModifierPressed(event);
+            const shouldMultiSelect = !isMobile && isMultiSelectModifierPressed(event, settings.multiSelectModifier);
+            const shouldOpenInNewTab = !isMobile && !shouldMultiSelect && settings.multiSelectModifier === 'optionAlt' && isCmdCtrlClick;
+            if (isShiftKey || shouldMultiSelect || shouldOpenInNewTab) {
+                return;
+            }
+
+            const selectedFiles = selectedFilesRef.current;
+            if (selectedFiles.size > 1 && selectedFiles.has(file.path)) {
+                return;
+            }
+
+            selectFileFromList(file, {
+                markUserSelection: true,
+                suppressOpen: true
+            });
+            uiDispatch({ type: 'SET_FOCUSED_PANE', pane: 'files' });
+        },
+        [isMobile, selectFileFromList, settings.multiSelectModifier, uiDispatch]
+    );
+
+    const handleListBackgroundPointerDown = useCallback(
+        (event: ReactPointerEvent<HTMLDivElement>) => {
+            if (event.defaultPrevented || event.button !== 0 || event.altKey || event.shiftKey || isCmdCtrlModifierPressed(event)) {
+                return;
+            }
+
+            if (selectionState.selectedFiles.size <= 1) {
+                return;
+            }
+
+            const target = getPointerTargetElement(event.target);
+            if (!target || target.closest(LIST_BACKGROUND_INTERACTIVE_SELECTOR)) {
+                return;
+            }
+
+            const bounds = event.currentTarget.getBoundingClientRect();
+            const isScrollbarHit =
+                event.clientX >= bounds.left + event.currentTarget.clientWidth ||
+                event.clientY >= bounds.top + event.currentTarget.clientHeight;
+            if (isScrollbarHit) {
+                return;
+            }
+
+            clearPendingKeyboardOpen();
+            selectionDispatch({ type: 'CLEAR_FILE_SELECTION' });
+            uiDispatch({ type: 'SET_FOCUSED_PANE', pane: 'files' });
+        },
+        [clearPendingKeyboardOpen, selectionDispatch, selectionState.selectedFiles.size, uiDispatch]
+    );
+
+    useEffect(() => {
+        if (selectionState.selectedFiles.size <= 1) {
+            return;
+        }
+
+        const ownerDocument = rootContainerRef.current?.ownerDocument ?? activeDocument;
+        const handleDocumentPointerDown = (event: PointerEvent) => {
+            if (event.defaultPrevented || event.button !== 0 || event.altKey || event.shiftKey || event.metaKey || event.ctrlKey) {
+                return;
+            }
+
+            const rootContainer = rootContainerRef.current;
+            const target = getPointerTargetElement(event.target);
+            if (!rootContainer || !target || rootContainer.contains(target)) {
+                return;
+            }
+
+            clearPendingKeyboardOpen();
+            selectionDispatch({ type: 'CLEAR_FILE_SELECTION' });
+        };
+
+        ownerDocument.addEventListener('pointerdown', handleDocumentPointerDown, true);
+        return () => {
+            ownerDocument.removeEventListener('pointerdown', handleDocumentPointerDown, true);
+        };
+    }, [clearPendingKeyboardOpen, rootContainerRef, selectionDispatch, selectionState.selectedFiles.size]);
+
     useEffect(() => {
         if (selectionState.selectedFile) {
             lastSelectedFilePathRef.current = selectionState.selectedFile.path;
@@ -543,6 +664,8 @@ export function useListPaneSelectionCoordinator({
         selectAdjacentFile,
         ensureSelectionForCurrentFilter,
         handleFileItemClick,
+        handleFileItemPointerDown,
+        handleListBackgroundPointerDown,
         lastSelectedFilePath: lastSelectedFilePathRef.current,
         isFileSelected,
         scheduleKeyboardSelectionOpen,

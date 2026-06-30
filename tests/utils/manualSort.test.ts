@@ -31,6 +31,7 @@ import {
     getCachedManualSortRank,
     getFolderPlanningInsertionIndex,
     getManualSortGroupHeaderPropertyKey,
+    insertManualSortMarkdownFilesAtDropTarget,
     isManualSortValueEqual,
     isValidManualSortPropertyKey,
     MANUAL_SORT_RANK_STEP,
@@ -200,6 +201,55 @@ describe('manual sort helpers', () => {
         const result = moveManualSortMarkdownFiles(files, 'notes/one.md', 'notes/two.md', new Set(['notes/one.md', 'notes/two.md']));
 
         expect(result).toBeNull();
+    });
+
+    it('inserts moved markdown files that are not yet in the target sibling scope', () => {
+        const files = [
+            { path: 'notes/one.md', extension: 'md' },
+            { path: 'notes/two.md', extension: 'md' },
+            { path: 'assets/file.pdf', extension: 'pdf' }
+        ];
+        const movedFiles = [
+            { path: 'notes/child-a.md', extension: 'md' },
+            { path: 'notes/child-b.md', extension: 'md' }
+        ];
+
+        const result = insertManualSortMarkdownFilesAtDropTarget(files, movedFiles, 'notes/two.md', 'before');
+
+        expect(result?.map(file => file.path)).toEqual([
+            'notes/one.md',
+            'notes/child-a.md',
+            'notes/child-b.md',
+            'notes/two.md',
+            'assets/file.pdf'
+        ]);
+    });
+
+    it('inserts moved markdown files as one block while removing existing copies from the target sibling scope', () => {
+        const files = [
+            { path: 'notes/one.md', extension: 'md' },
+            { path: 'notes/two.md', extension: 'md' },
+            { path: 'notes/three.md', extension: 'md' },
+            { path: 'notes/four.md', extension: 'md' }
+        ];
+        const movedFiles = [
+            { path: 'notes/two.md', extension: 'md' },
+            { path: 'notes/four.md', extension: 'md' }
+        ];
+
+        const result = insertManualSortMarkdownFilesAtDropTarget(files, movedFiles, 'notes/one.md', 'after');
+
+        expect(result?.map(file => file.path)).toEqual(['notes/one.md', 'notes/two.md', 'notes/four.md', 'notes/three.md']);
+    });
+
+    it('rejects inserting a moved markdown block onto itself', () => {
+        const files = [
+            { path: 'notes/one.md', extension: 'md' },
+            { path: 'notes/two.md', extension: 'md' }
+        ];
+        const movedFiles = [{ path: 'notes/two.md', extension: 'md' }];
+
+        expect(insertManualSortMarkdownFilesAtDropTarget(files, movedFiles, 'notes/two.md', 'before')).toBeNull();
     });
 
     it('moves a selected markdown block down by one row for keyboard sorting', () => {

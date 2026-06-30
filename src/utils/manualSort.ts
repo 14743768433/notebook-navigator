@@ -285,7 +285,7 @@ export function reorderManualSortMarkdownFilesAtDropTarget<T extends ManualSortF
     selectedPaths: ReadonlySet<string>,
     position: 'before' | 'after'
 ): T[] | null {
-    const { markdown, nonMarkdown } = partitionManualSortFiles(files);
+    const { markdown } = partitionManualSortFiles(files);
     const activeFile = markdown.find(file => file.path === activePath);
     const overFile = markdown.find(file => file.path === overPath);
     if (!activeFile || !overFile) {
@@ -300,6 +300,35 @@ export function reorderManualSortMarkdownFilesAtDropTarget<T extends ManualSortF
     }
 
     const movedMarkdown = markdown.filter(file => movedPathSet.has(file.path));
+    return insertManualSortMarkdownFilesAtDropTarget(files, movedMarkdown, overPath, position);
+}
+
+export function insertManualSortMarkdownFilesAtDropTarget<T extends ManualSortFileLike>(
+    files: readonly T[],
+    movedFiles: readonly T[],
+    overPath: string,
+    position: 'before' | 'after'
+): T[] | null {
+    const { markdown, nonMarkdown } = partitionManualSortFiles(files);
+    const overFile = markdown.find(file => file.path === overPath);
+    if (!overFile) {
+        return null;
+    }
+
+    const movedMarkdown: T[] = [];
+    const movedPathSet = new Set<string>();
+    movedFiles.forEach(file => {
+        if (file.extension !== 'md' || movedPathSet.has(file.path)) {
+            return;
+        }
+        movedPathSet.add(file.path);
+        movedMarkdown.push(file);
+    });
+
+    if (movedMarkdown.length === 0 || movedPathSet.has(overPath)) {
+        return null;
+    }
+
     const remainingMarkdown = markdown.filter(file => !movedPathSet.has(file.path));
     const overRemainingIndex = remainingMarkdown.findIndex(file => file.path === overPath);
     if (overRemainingIndex === -1) {

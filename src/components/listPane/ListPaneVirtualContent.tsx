@@ -60,6 +60,7 @@ import { resolveFolderDecorationColors } from '../../utils/folderDecoration';
 import { addManualSortGroupHeaderMenuItems } from '../../utils/contextMenu/manualSortGroupHeaderMenuItems';
 import { addMergeNotesMenuItem } from '../../utils/contextMenu/mergeNotesMenuItems';
 import { getMarkdownFilesInOrder } from '../../utils/noteMerge';
+import { canAttachNoteTreeSelectionToParent, getTopLevelSelectedNoteTreePaths } from '../../utils/noteTreeDrag';
 import { ManualSortGroupHeaderContent, ManualSortGroupHeaderProgress } from './ManualSortGroupHeaderContent';
 
 const NOTE_TREE_INDENT_PX = 28;
@@ -76,6 +77,13 @@ export interface ListPaneDragSortDrop {
 
 interface DragSortState extends ListPaneDragSortDrop {
     isValid: boolean;
+}
+
+interface DragSelectionInfo {
+    paths: Set<string>;
+    rootPaths: Set<string>;
+    subtreePaths: Set<string>;
+    hasUnsupportedSelection: boolean;
 }
 
 interface DropAnchor {
@@ -166,6 +174,8 @@ interface ListPaneVirtualContentProps {
     suppressRowHover: boolean;
     onHoveredFilePathChange: (path: string | null, pointerClientPosition: PointerClientPosition | null) => void;
     onFileClick: (file: TFile, fileIndex: number | undefined, event: React.MouseEvent) => void;
+    onFilePointerDown: (file: TFile, event: React.PointerEvent) => void;
+    onListBackgroundPointerDown: (event: React.PointerEvent<HTMLDivElement>) => void;
     onModifySearchWithTag: (tag: string, operator: InclusionOperator) => void;
     onModifySearchWithProperty: (key: string, value: string | null, operator: InclusionOperator) => void;
     localDayReference: Date | null;
@@ -645,6 +655,8 @@ export function ListPaneVirtualContent({
     suppressRowHover,
     onHoveredFilePathChange,
     onFileClick,
+    onFilePointerDown,
+    onListBackgroundPointerDown,
     onModifySearchWithTag,
     onModifySearchWithProperty,
     localDayReference,
@@ -1045,11 +1057,48 @@ export function ListPaneVirtualContent({
         });
         return info;
     }, [listItems]);
+    const getDragSelectionInfo = useCallback(
+        (activePath: string): DragSelectionInfo => {
+            const paths = new Set<string>();
+            let hasUnsupportedSelection = false;
+            const candidatePaths = selectedFilePaths.has(activePath) ? selectedFilePaths : new Set([activePath]);
+
+            candidatePaths.forEach(path => {
+                const info = fileItemInfoByPath.get(path);
+                if (!info || !(info.item.data instanceof TFile) || info.item.data.extension !== 'md' || info.item.isPinned) {
+                    hasUnsupportedSelection = true;
+                    return;
+                }
+                paths.add(path);
+            });
+
+            const rootPaths = getTopLevelSelectedNoteTreePaths(paths, path => fileItemInfoByPath.get(path)?.parentPath ?? null);
+            const subtreePaths = new Set(paths);
+            rootPaths.forEach(rootPath => {
+                subtreePaths.add(rootPath);
+                if (!hierarchyService) {
+                    return;
+                }
+                fileItemInfoByPath.forEach((_, path) => {
+                    if (path !== rootPath && hierarchyService.isDescendant(rootPath, path)) {
+                        subtreePaths.add(path);
+                    }
+                });
+            });
+
+            return { paths, rootPaths, subtreePaths, hasUnsupportedSelection };
+        },
+        [fileItemInfoByPath, hierarchyService, selectedFilePaths]
+    );
     const getDropMaxDepth = useCallback(
-        (insertionIndex: number, activePath: string): number => {
+        (insertionIndex: number, excludedPaths: ReadonlySet<string>): number => {
             for (let index = insertionIndex - 1; index >= 0; index -= 1) {
                 const candidate = listItems[index];
-                if (candidate?.type === ListPaneItemType.FILE && candidate.data instanceof TFile && candidate.data.path !== activePath) {
+                if (
+                    candidate?.type === ListPaneItemType.FILE &&
+                    candidate.data instanceof TFile &&
+                    !excludedPaths.has(candidate.data.path)
+                ) {
                     return (candidate.depth ?? 0) + 1;
                 }
             }
@@ -1058,7 +1107,7 @@ export function ListPaneVirtualContent({
         [listItems]
     );
     const resolveParentForDropDepth = useCallback(
-        (insertionIndex: number, depth: number, activePath: string): string | null => {
+        (insertionIndex: number, depth: number, excludedPaths: ReadonlySet<string>): string | null => {
             if (depth <= 0) {
                 return null;
             }
@@ -1068,7 +1117,7 @@ export function ListPaneVirtualContent({
                 if (
                     candidate?.type === ListPaneItemType.FILE &&
                     candidate.data instanceof TFile &&
-                    candidate.data.path !== activePath &&
+                    !excludedPaths.has(candidate.data.path) &&
                     (candidate.depth ?? 0) === depth - 1
                 ) {
                     return candidate.data.path;
@@ -1083,6 +1132,7 @@ export function ListPaneVirtualContent({
             insertionIndex: number,
             parentPath: string | null,
             activePath: string,
+            excludedPaths: ReadonlySet<string>,
             preferredPosition: 'before' | 'after'
         ): DropAnchor | null => {
             const isTargetSibling = (
@@ -1092,6 +1142,7 @@ export function ListPaneVirtualContent({
                     item?.type === ListPaneItemType.FILE &&
                     item.data instanceof TFile &&
                     item.data.path !== activePath &&
+                    !excludedPaths.has(item.data.path) &&
                     item.data.extension === 'md' &&
                     !item.isPinned &&
                     (item.hierarchyParentPath ?? null) === parentPath
@@ -1140,25 +1191,36 @@ export function ListPaneVirtualContent({
             const position = point.y < rect.top + rect.height / 2 ? 'before' : 'after';
             const overDepth = overInfo.depth;
             const insertionIndex = position === 'after' ? overInfo.index + 1 : overInfo.index;
-            const maxDepth = getDropMaxDepth(insertionIndex, activePath);
-            const projectedDepth = activeInfo.depth + Math.round(delta.x / NOTE_TREE_INDENT_PX);
+            const dragSelection = getDragSelectionInfo(activePath);
+            const maxDepth = getDropMaxDepth(insertionIndex, dragSelection.subtreePaths);
+            const rootIterator = dragSelection.rootPaths.values().next();
+            const primaryRootPath = dragSelection.rootPaths.has(activePath) || rootIterator.done ? activePath : rootIterator.value;
+            const dragDepth = fileItemInfoByPath.get(primaryRootPath)?.depth ?? activeInfo.depth;
+            const projectedDepth = dragDepth + Math.round(delta.x / NOTE_TREE_INDENT_PX);
             const requestedDepth = Math.max(0, Math.min(maxDepth, projectedDepth));
             const childIntent = delta.x >= NOTE_TREE_CHILD_INTENT_THRESHOLD_PX;
-            const selectedMarkdownCount = Array.from(selectedFilePaths).filter(
-                path => fileItemInfoByPath.get(path)?.item.data instanceof TFile
-            ).length;
+            const canAttachSelectionToParent = (targetParentPath: string | null): boolean =>
+                targetParentPath === null ||
+                (Boolean(hierarchyService) &&
+                canAttachNoteTreeSelectionToParent(
+                    dragSelection.rootPaths,
+                    targetParentPath,
+                    (ancestorPath, candidatePath) => hierarchyService?.isDescendant(ancestorPath, candidatePath) ?? false
+                ));
 
             if (childIntent) {
                 const isValid =
                     activePath !== overPath &&
-                    selectedMarkdownCount <= 1 &&
+                    dragSelection.rootPaths.size > 0 &&
+                    !dragSelection.hasUnsupportedSelection &&
                     overInfo.item.data instanceof TFile &&
+                    !dragSelection.subtreePaths.has(overPath) &&
                     !overInfo.item.isPinned &&
                     !activeInfo.item.isPinned &&
                     overInfo.item.data.extension === 'md' &&
                     activeInfo.item.data instanceof TFile &&
                     activeInfo.item.data.extension === 'md' &&
-                    !(hierarchyService?.isDescendant(activePath, overPath) ?? false);
+                    canAttachSelectionToParent(overPath);
                 return {
                     activePath,
                     overPath,
@@ -1170,8 +1232,8 @@ export function ListPaneVirtualContent({
                 };
             }
 
-            const parentPath = resolveParentForDropDepth(insertionIndex, requestedDepth, activePath);
-            const dropAnchor = resolveSiblingDropAnchor(insertionIndex, parentPath, activePath, position);
+            const parentPath = resolveParentForDropDepth(insertionIndex, requestedDepth, dragSelection.subtreePaths);
+            const dropAnchor = resolveSiblingDropAnchor(insertionIndex, parentPath, activePath, dragSelection.subtreePaths, position);
             if (!dropAnchor) {
                 return null;
             }
@@ -1179,13 +1241,16 @@ export function ListPaneVirtualContent({
             const isValid =
                 activePath !== dropAnchor.path &&
                 Boolean(dropAnchorInfo) &&
+                dragSelection.rootPaths.size > 0 &&
+                !dragSelection.hasUnsupportedSelection &&
+                !dragSelection.subtreePaths.has(dropAnchor.path) &&
                 !dropAnchorInfo?.item.isPinned &&
                 !activeInfo.item.isPinned &&
                 dropAnchorInfo?.item.data instanceof TFile &&
                 dropAnchorInfo.item.data.extension === 'md' &&
                 activeInfo.item.data instanceof TFile &&
                 activeInfo.item.data.extension === 'md' &&
-                (parentPath === null || !(hierarchyService?.isDescendant(activePath, parentPath) ?? false));
+                canAttachSelectionToParent(parentPath);
             return {
                 activePath,
                 overPath: dropAnchor.path,
@@ -1196,7 +1261,7 @@ export function ListPaneVirtualContent({
                 isValid
             };
         },
-        [fileItemInfoByPath, getDropMaxDepth, hierarchyService, resolveParentForDropDepth, resolveSiblingDropAnchor, selectedFilePaths]
+        [fileItemInfoByPath, getDragSelectionInfo, getDropMaxDepth, hierarchyService, resolveParentForDropDepth, resolveSiblingDropAnchor]
     );
     const updateDropStateFromEvent = useCallback(
         (event: DragMoveEvent | DragOverEvent) => {
@@ -1279,6 +1344,7 @@ export function ListPaneVirtualContent({
                 data-pane="files"
                 role="list"
                 tabIndex={-1}
+                onPointerDown={onListBackgroundPointerDown}
                 onMouseMove={handleListMouseMove}
                 onMouseLeave={handleListMouseLeave}
             >
@@ -1463,6 +1529,7 @@ export function ListPaneVirtualContent({
                                                     !isInlineRenaming && !suppressRowHover && hoveredFilePath === item.data.path
                                                 }
                                                 onFileClick={onFileClick}
+                                                onFilePointerDown={onFilePointerDown}
                                                 fileIndex={item.fileIndex}
                                                 selectionType={selectionType}
                                                 groupHeaderLabel={groupHeaderLabel}
